@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "default_priority": 2,
+  "assignments": [
+    {
+      "patterns": ["*password-reset*"],
+      "priority": 3,
+      "name": "Password Reset",
+      "problem": "dzienny przebieg nie zakończył się pomyślnie",
+      "resolved": "dzienny przebieg ponownie zakończył się pomyślnie"
+    },
+    {
+      "patterns": [
+        "system-timer:*backup*", "system-service:*backup*:result",
+        "user-timer:*backup*", "user-service:*backup*:result",
+        "user-timer:*restic*", "user-service:*restic*:result"
+      ],
+      "priority": 3,
+      "name": "Backup",
+      "problem": "ostatni poprawny backup jest przeterminowany",
+      "resolved": "backup ponownie zakończył się pomyślnie"
+    },
+    {
+      "patterns": ["*mbsync*", "*mail-archive*", "*imap-delete*"],
+      "priority": 3,
+      "name": "Archiwizacja poczty",
+      "problem": "zadanie archiwizacji nie zakończyło się prawidłowo",
+      "resolved": "zadanie ponownie zakończyło się pomyślnie"
+    },
+    {
+      "patterns": ["*socialmedia*"],
+      "priority": 3,
+      "name": "Zaproszenia Social Media",
+      "problem": "zadanie nie zakończyło się prawidłowo",
+      "resolved": "zadanie ponownie zakończyło się pomyślnie"
+    },
+    {
+      "patterns": [
+        "daily-success:*",
+        "cron:*",
+        "system-timer:*backup*", "system-service:*backup*:result",
+        "system-timer:*retention*", "system-service:*retention*:result",
+        "system-timer:*restore-test*", "system-service:*restore-test*:result",
+        "system-timer:minecraft-bedrock-*", "system-service:minecraft-bedrock*:result",
+        "user-timer:lesson-starters-sync.timer", "user-service:lesson-starters-sync.service:result",
+        "user-timer:telegram-daily-reason.timer", "user-service:telegram-daily-reason.service:result",
+        "system-timer:meta-api-daily-sync.timer", "system-service:meta-api-daily-sync.service:result",
+        "system-timer:mail-handler-sheets-import.timer", "system-service:mail-handler-sheets-import.service:result",
+        "system-timer:google-api-daily-sync.timer", "system-service:google-api-daily-sync.service:result",
+        "system-timer:support-class-reporting*.timer", "system-service:support-class-reporting*.service:result",
+        "system-timer:designmodo-api-daily-sync.timer", "system-service:designmodo-api-daily-sync.service:result",
+        "system-timer:vsconline-baseline-restore.timer", "system-service:vsconline-baseline-restore.service:result",
+        "system-timer:vm-manager-*.timer", "system-service:vm-manager-*.service:result",
+        "system-timer:gowork-notifier-scan.timer", "system-service:gowork-notifier-scan.service:result"
+      ],
+      "priority": 3,
+      "problem": "ostatni przebieg nie zakończył się prawidłowo",
+      "resolved": "zadanie ponownie zakończyło się pomyślnie"
+    },
+    {
+      "patterns": ["endpoint:home-assistant-api"],
+      "priority": 2,
+      "name": "Home Assistant"
+    },
+    {
+      "patterns": ["endpoint:vps-restic-rest-server"],
+      "priority": 2,
+      "name": "Serwer backupu"
+    },
+    {
+      "patterns": ["endpoint:trustpilot-notifier-*", "endpoint:trustpilot-notifier-health", "user-service:trustpilot-notifier*"],
+      "priority": 2,
+      "name": "Trustpilot Notifier",
+      "problem": "połączenie nie działa prawidłowo",
+      "resolved": "połączenie ponownie działa prawidłowo"
+    },
+    {
+      "patterns": ["external-heartbeat:*", "route:*", "vpn:*", "filesystem:*", "memory:*", "load:*", "mount:*", "database:*", "dns:*", "tls:*"],
+      "priority": 2
+    },
+    {
+      "patterns": ["endpoint:online-compiler-*", "service:online-compiler*"],
+      "priority": 1,
+      "name": "Online Compiler",
+      "problem": "brak poprawnej odpowiedzi publicznej"
+    },
+    {
+      "patterns": ["endpoint:ai-portal-*", "endpoint:tools-portal*"],
+      "priority": 1,
+      "name": "AI Portal"
+    },
+    {
+      "patterns": ["endpoint:ai-text-*", "service:ai-text*"],
+      "priority": 1,
+      "name": "AI Text"
+    },
+    {
+      "patterns": ["endpoint:ai-imaging-*", "endpoint:images-*", "endpoint:imagenes-*", "endpoint:bilder-*", "service:ai-imaging*"],
+      "priority": 1,
+      "name": "AI Imaging"
+    },
+    {
+      "patterns": ["endpoint:ai-music-*", "service:ai-music*"],
+      "priority": 1,
+      "name": "AI Music"
+    },
+    {
+      "patterns": ["endpoint:ai-audio-*", "service:ai-audio*"],
+      "priority": 1,
+      "name": "AI Audio"
+    },
+    {
+      "patterns": ["endpoint:ai-video-*", "service:ai-video*"],
+      "priority": 1,
+      "name": "AI Video"
+    },
+    {
+      "patterns": ["endpoint:minecraft-*", "service:minecraft-*"],
+      "priority": 1,
+      "name": "Minecraft CodeBuilder"
+    },
+    {
+      "patterns": ["endpoint:vsconline-*", "service:vsconline-*"],
+      "priority": 1,
+      "name": "VSCode Online"
+    },
+    {
+      "patterns": [
+        "service:meta-api*", "service:google-api*", "service:mail-handler*",
+        "service:meta-notifier*", "service:designmodo-api*",
+        "service:schedule-publisher-api.service", "service:openai-teacher-keys.service",
+        "service:auth-gp.service", "service:password-provide.service",
+        "service:online-compiler-keys.service", "service:canva-pro-keys.service",
+        "service:support-class-reporting-realtime.service"
+      ],
+      "priority": 1,
+      "problem": "proces aplikacji nie działa",
+      "resolved": "aplikacja ponownie działa prawidłowo"
+    },
+    {
+      "patterns": [
+        "endpoint:meta-api-local", "endpoint:meta-api-mcp-local",
+        "endpoint:google-api-local", "endpoint:google-api-mcp-local",
+        "endpoint:mail-handler-local", "endpoint:meta-notifier-local",
+        "endpoint:designmodo-api-local", "endpoint:designmodo-api-mcp-local",
+        "endpoint:openai-teacher-keys-local", "endpoint:auth-gp-local",
+        "endpoint:password-provide-local", "endpoint:online-compiler-keys-local",
+        "endpoint:canva-pro-keys-local", "endpoint:schedule-publisher-local",
+        "endpoint:mcp-gateway-local", "endpoint:google-mybusiness-notifier-api-local"
+      ],
+      "priority": 1,
+      "problem": "proces aplikacji nie odpowiada prawidłowo",
+      "resolved": "aplikacja ponownie działa prawidłowo"
+    },
+    {
+      "patterns": ["endpoint:*-local", "endpoint:*local*"],
+      "priority": 2
+    },
+    {
+      "patterns": ["endpoint:*"],
+      "priority": 1,
+      "problem": "usługa publiczna nie odpowiada prawidłowo"
+    },
+    {
+      "patterns": ["service:apache2.service"],
+      "priority": 1,
+      "problem": "usługa wymagana przez aplikacje użytkowników nie działa"
+    },
+    {
+      "patterns": ["system-timer:*", "user-timer:*", "system-service:*:result", "user-service:*:result"],
+      "priority": 2,
+      "problem": "ostatni przebieg nie zakończył się prawidłowo",
+      "resolved": "zadanie ponownie zakończyło się pomyślnie"
+    },
+    {
+      "patterns": ["*"],
+      "priority": 2
+    }
+  ]
+}

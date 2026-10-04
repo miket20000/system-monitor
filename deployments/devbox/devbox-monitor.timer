@@ -1,0 +1,12 @@
+[Unit]
+Description=Run devbox health monitor every five minutes
+
+[Timer]
+OnBootSec=2min
+OnCalendar=*-*-* *:0/5:00 Europe/Warsaw
+AccuracySec=30s
+Persistent=false
+Unit=devbox-monitor.service
+
+[Install]
+WantedBy=timers.target

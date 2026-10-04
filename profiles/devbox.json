@@ -1,0 +1,274 @@
+{
+  "schema_version": 1,
+  "adapter": "devbox",
+  "priorities_file": "/home/miket/.config/system-monitor/priorities.json",
+  "host_label": "devbox",
+  "state_file": "/home/miket/.local/state/devbox-monitor/state.json",
+  "thresholds": {
+    "disk_warning_percent": 90,
+    "disk_critical_percent": 95,
+    "inode_warning_percent": 80,
+    "inode_critical_percent": 90,
+    "memory_warning_percent": 90,
+    "memory_critical_percent": 95,
+    "load_warning_multiplier": 1.5,
+    "load_critical_multiplier": 3,
+    "http_warning_seconds": 5,
+    "http_critical_seconds": 8,
+    "http_warning_consecutive_failures": 2,
+    "http_critical_consecutive_failures": 3
+  },
+  "notifications": {
+    "warning_cooldown_seconds": 3600,
+    "critical_cooldown_seconds": 900
+  },
+  "notification_overrides": {
+    "user-service:socialmedia-weekly-invitations.service:result": {
+      "warning_cooldown_seconds": 21600,
+      "repeat_same_incident": true
+    },
+    "user-service:vps-restic-gp-mail-purge.service:result": {
+      "warning_cooldown_seconds": 21600,
+      "critical_cooldown_seconds": 21600,
+      "repeat_same_incident": true
+    }
+  },
+  "system_units": [
+    {"unit": "ssh.service"},
+    {"unit": "NetworkManager.service"},
+    {"unit": "systemd-resolved.service"},
+    {"unit": "chrony.service"},
+    {"unit": "cron.service"},
+    {"unit": "rsyslog.service"},
+    {"unit": "docker.service"},
+    {"unit": "smbd.service"},
+    {"unit": "smartmontools.service"},
+    {"unit": "gdm.service"},
+    {"unit": "anydesk.service"}
+  ],
+  "user_services": [
+    {"unit": "gnome-remote-desktop.service"},
+    {"unit": "vps-restic-rest-server.service"},
+    {"unit": "telegram-daily-reason-receiver.service"},
+    {"unit": "trustpilot-notifier.service"},
+    {"unit": "trustpilot-notifier-tunnel.service"}
+  ],
+  "vpn_checks": [
+    {
+      "name": "vpn-cg",
+      "unit": "vpn-cg.service",
+      "interface_pattern": "ppp*",
+      "client_subnet": "10.10.200.0/24",
+      "server": "51.89.41.33",
+      "target": "10.10.200.106",
+      "target_port": 31433,
+      "timeout_seconds": 5
+    }
+  ],
+  "user_timers": [
+    {
+      "unit": "password-reset-orchestrator.timer",
+      "service": "password-reset-orchestrator.service",
+      "warning_hours": 1,
+      "critical_hours": 2
+    },
+    {
+      "unit": "lesson-starters-sync.timer",
+      "service": "lesson-starters-sync.service",
+      "warning_hours": 18,
+      "critical_hours": 26
+    },
+    {
+      "unit": "socialmedia-weekly-invitations.timer",
+      "service": "socialmedia-weekly-invitations.service",
+      "warning_hours": 192,
+      "critical_hours": 216,
+      "first_success_due": "2026-09-07T18:00:00+02:00",
+      "result_file": "/home/miket/.local/state/socialmedia-weekly-invitations/result.json",
+      "blocked_exit_statuses": [20]
+    },
+    {
+      "unit": "vps-restic-backup.timer",
+      "service": "vps-restic-backup.service",
+      "warning_hours": 30,
+      "critical_hours": 36,
+      "first_success_due": "2026-09-08T05:00:00+02:00"
+    },
+    {
+      "unit": "vps-restic-check.timer",
+      "service": "vps-restic-check.service",
+      "warning_hours": 192,
+      "critical_hours": 216
+    },
+    {
+      "unit": "vps-restic-retention.timer",
+      "service": "vps-restic-retention.service",
+      "warning_hours": 192,
+      "critical_hours": 216,
+      "first_success_due": "2026-09-13T09:00:00+02:00"
+    },
+    {
+      "unit": "vps-restic-gp-mail-purge.timer",
+      "service": "vps-restic-gp-mail-purge.service",
+      "warning_hours": 192,
+      "critical_hours": 216,
+      "first_success_due": "2026-09-14T09:00:00+02:00"
+    },
+    {
+      "unit": "vps-restic-data-check.timer",
+      "service": "vps-restic-data-check.service",
+      "warning_hours": 840,
+      "critical_hours": 960,
+      "first_success_due": "2026-10-01T12:30:00+02:00"
+    },
+    {
+      "unit": "telegram-daily-reason.timer",
+      "service": "telegram-daily-reason.service",
+      "warning_hours": 30,
+      "critical_hours": 36
+    },
+    {
+      "unit": "trustpilot-notifier-process.timer",
+      "service": "trustpilot-notifier-process.service",
+      "warning_hours": 0.08333333333333333,
+      "critical_hours": 0.16666666666666666
+    }
+  ],
+  "system_timers": [
+    {
+      "unit": "devbox-system-backup.timer",
+      "service": "devbox-system-backup.service",
+      "warning_hours": 30,
+      "critical_hours": 36,
+      "first_success_due": "2026-09-09T05:00:00+02:00"
+    },
+    {
+      "unit": "devbox-system-backup-retention.timer",
+      "service": "devbox-system-backup-retention.service",
+      "warning_hours": 192,
+      "critical_hours": 216,
+      "first_success_due": "2026-09-13T11:00:00+02:00"
+    },
+    {
+      "unit": "devbox-system-backup-check.timer",
+      "service": "devbox-system-backup-check.service",
+      "warning_hours": 192,
+      "critical_hours": 216,
+      "first_success_due": "2026-09-08T13:00:00+02:00"
+    },
+    {
+      "unit": "devbox-system-backup-data-check.timer",
+      "service": "devbox-system-backup-data-check.service",
+      "warning_hours": 840,
+      "critical_hours": 960,
+      "first_success_due": "2026-10-02T13:00:00+02:00"
+    },
+    {
+      "unit": "devbox-system-backup-restore-test.timer",
+      "service": "devbox-system-backup-restore-test.service",
+      "warning_hours": 2400,
+      "critical_hours": 2640,
+      "first_success_due": "2026-10-08T15:00:00+02:00"
+    },
+    {
+      "unit": "minecraft-bedrock-start.timer",
+      "service": "minecraft-bedrock.service",
+      "warning_hours": 30,
+      "critical_hours": 36,
+      "first_success_due": "2026-09-09T08:30:00+02:00"
+    },
+    {
+      "unit": "minecraft-bedrock-stop.timer",
+      "service": "minecraft-bedrock-stop.service",
+      "warning_hours": 30,
+      "critical_hours": 36,
+      "first_success_due": "2026-09-09T22:30:00+02:00"
+    }
+  ],
+  "daily_success_checks": [
+    {
+      "name": "password-reset-primary",
+      "label": "Password Reset primary",
+      "state_file": "/home/miket/.local/state/password-reset/canva-primary.state.json",
+      "pending_file": "/home/miket/.local/state/password-reset/canva-primary.pending",
+      "last_success_local_date_field": "last_success_local_date",
+      "last_result_field": "last_result",
+      "time_zone": "Europe/Warsaw",
+      "window_end": "09:00",
+      "warning_missed_windows": 1,
+      "critical_missed_windows": 2
+    },
+    {
+      "name": "password-reset-canva1",
+      "label": "Password Reset canva1",
+      "state_file": "/home/miket/.local/state/password-reset/canva-canva1.state.json",
+      "pending_file": "/home/miket/.local/state/password-reset/canva-canva1.pending",
+      "last_success_local_date_field": "last_success_local_date",
+      "last_result_field": "last_result",
+      "time_zone": "Europe/Warsaw",
+      "window_end": "09:00",
+      "warning_missed_windows": 1,
+      "critical_missed_windows": 2
+    },
+    {
+      "name": "password-reset-canva2",
+      "label": "Password Reset canva2",
+      "state_file": "/home/miket/.local/state/password-reset/canva-canva2.state.json",
+      "pending_file": "/home/miket/.local/state/password-reset/canva-canva2.pending",
+      "last_success_local_date_field": "last_success_local_date",
+      "last_result_field": "last_result",
+      "time_zone": "Europe/Warsaw",
+      "window_end": "09:00",
+      "warning_missed_windows": 1,
+      "critical_missed_windows": 2
+    },
+    {
+      "name": "password-reset-canva3",
+      "label": "Password Reset canva3",
+      "state_file": "/home/miket/.local/state/password-reset/canva-canva3.state.json",
+      "pending_file": "/home/miket/.local/state/password-reset/canva-canva3.pending",
+      "last_success_local_date_field": "last_success_local_date",
+      "last_result_field": "last_result",
+      "time_zone": "Europe/Warsaw",
+      "window_end": "09:00",
+      "warning_missed_windows": 1,
+      "critical_missed_windows": 2
+    }
+  ],
+  "mount_checks": [
+    {
+      "path": "/mnt/backup-disk",
+      "uuid": "3ccbe9be-62aa-4522-9210-ddafc46dc4ed",
+      "fstype": "ext4",
+      "writable": true
+    },
+    {
+      "path": "/mnt/devbox-system-backup",
+      "uuid": "14cf42d3-5e29-44ae-809f-8c91a5f1b3ac",
+      "fstype": "ext4",
+      "writable": true
+    }
+  ],
+  "endpoints": [
+    {
+      "name": "home-assistant-api",
+      "url": "http://127.0.0.1:8123/api/",
+      "allowed_statuses": [401]
+    },
+    {
+      "name": "vps-restic-rest-server",
+      "url": "http://127.0.0.1:8000/",
+      "allowed_statuses": [401]
+    },
+    {
+      "name": "trustpilot-notifier-health",
+      "url": "http://127.0.0.1:8115/health",
+      "allowed_statuses": [200],
+      "expected_json": {
+        "ready": true,
+        "processing_enabled": true,
+        "auto_reply_enabled": true
+      }
+    }
+  ]
+}

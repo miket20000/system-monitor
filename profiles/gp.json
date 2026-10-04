@@ -1,0 +1,1710 @@
+{
+  "schema_version": 1,
+  "adapter": "gp",
+  "priorities_file": "/etc/system-monitor/priorities.json",
+  "host_label": "gp",
+  "state_file": "/var/lib/gp-monitor/state.json",
+  "thresholds": {
+    "disk_warning_percent": 80,
+    "disk_critical_percent": 90,
+    "inode_warning_percent": 80,
+    "inode_critical_percent": 90,
+    "memory_warning_percent": 85,
+    "memory_critical_percent": 95,
+    "swap_warning_percent": 25,
+    "swap_critical_percent": 50,
+    "load_warning_multiplier": 1.5,
+    "load_critical_multiplier": 3,
+    "http_warning_seconds": 5,
+    "http_critical_seconds": 8,
+    "dns_warning_seconds": 2
+  },
+  "notifications": {
+    "default_failure_confirmation_cycles": 2,
+    "network_failure_confirmation_cycles": 3,
+    "recovery_confirmation_cycles": 2,
+    "reminder_seconds": 21600,
+    "max_items_per_message": 20,
+    "suppressed_recovery_keys": [
+      "service:canva-pro-keys.service",
+      "endpoint:canva-pro-keys-local"
+    ],
+    "suppressed_key_prefixes": []
+  },
+  "system_services": [
+    "apache2.service",
+    "cron.service",
+    "docker.service",
+    "ssh.service",
+    "mariadb.service",
+    "postgresql.service",
+    "postgresql@17-main.service",
+    "vsconline-code-server.service",
+    "vm-manager.service",
+    "meta-api.service",
+    "meta-api-mcp.service",
+    "google-api.service",
+    "google-api-mcp.service",
+    "mail-handler.service",
+    "meta-notifier.service",
+    "designmodo-api.service",
+    "designmodo-api-mcp.service",
+    "google-mybusiness-notifier.service",
+    "google-mybusiness-notifier-api.service",
+    "schedule-publisher-api.service",
+    "openai-teacher-keys.service",
+    "auth-gp.service",
+    "password-provide.service",
+    "online-compiler-keys.service",
+    "canva-pro-keys.service",
+    "ai-text.service",
+    "ai-text-worker.service",
+    "ai-music.service",
+    "ai-music-worker.service",
+    "ai-audio.service",
+    "ai-audio-worker.service",
+    "ai-video.service",
+    "ai-video-worker.service",
+    "vpn-cg.service",
+    "vsftpd.service",
+    "rsyslog.service",
+    "systemd-timesyncd.service",
+    "ai-imaging.service",
+    "ai-imaging-worker.service",
+    "minecraft-codebuilder-backend.service",
+    "support-class-reporting-realtime.service"
+  ],
+  "database_checks": [
+    {
+      "name": "postgresql",
+      "probe": "postgresql",
+      "host": "127.0.0.1",
+      "port": 5432
+    },
+    {
+      "name": "mariadb",
+      "probe": "mariadb-socket"
+    }
+  ],
+  "route_checks": [
+    {
+      "name": "vpn-cg-sql",
+      "destination": "10.10.200.106",
+      "interface_prefix": "ppp",
+      "critical_consecutive_failures": 2
+    }
+  ],
+  "journal_error_checks": [
+    {
+      "name": "google-mybusiness-notifier-worker",
+      "unit": "google-mybusiness-notifier.service",
+      "lookback_minutes": 20,
+      "critical_consecutive_failures": 2,
+      "patterns": [
+        "Fallback scan failed",
+        "Failed to process Pub/Sub message"
+      ]
+    }
+  ],
+  "external_json_heartbeats": [
+    {
+      "name": "online-compiler-production-schedule",
+      "path": "/var/lib/gp-monitor/external/online-compiler-production-schedule.json",
+      "warning_seconds": 1200,
+      "critical_seconds": 2100,
+      "allowed_statuses": [
+        "OPEN",
+        "CLOSED"
+      ],
+      "expected_json": {
+        "schemaVersion": 1,
+        "check": "online-compiler-production-schedule",
+        "sourceHost": "devbox",
+        "timerActive": true,
+        "timerEnabled": true,
+        "holdCount": 0,
+        "lastCycleResult": "SUCCESS",
+        "schedulerHealthy": true
+      }
+    },
+    {
+      "name": "online-compiler-next-dev-hibernation",
+      "path": "/var/lib/gp-monitor/external/online-compiler-next-dev-hibernation.json",
+      "warning_seconds": 1200,
+      "critical_seconds": 2100,
+      "allowed_statuses": [
+        "ACTIVE",
+        "HIBERNATED",
+        "FAILED"
+      ],
+      "semantic_policy": "online-compiler-next-dev-hibernation-v1",
+      "overdue_grace_seconds": 900,
+      "expected_json": {
+        "schemaVersion": 1,
+        "check": "online-compiler-next-dev-hibernation",
+        "sourceHost": "devbox",
+        "idleThresholdSeconds": 3600
+      }
+    }
+  ],
+  "system_timers": [
+    {
+      "unit": "openai-key-monitor.timer",
+      "service": "openai-key-monitor.service",
+      "warning_hours": 2,
+      "critical_hours": 3
+    },
+    {
+      "unit": "auth-gp-expiry.timer",
+      "service": "auth-gp-expiry.service",
+      "warning_hours": 0.0834,
+      "critical_hours": 0.1667
+    },
+    {
+      "unit": "openai-teacher-keys-cost-sync.timer",
+      "service": "openai-teacher-keys-cost-sync.service",
+      "warning_hours": 1,
+      "critical_hours": 2
+    },
+    {
+      "unit": "openai-teacher-keys-expiry-sync.timer",
+      "service": "openai-teacher-keys-expiry-sync.service",
+      "warning_hours": 0.25,
+      "critical_hours": 0.5
+    },
+    {
+      "unit": "ai-text-cleanup.timer",
+      "service": "ai-text-cleanup.service",
+      "warning_hours": 1.5,
+      "critical_hours": 2
+    },
+    {
+      "unit": "openai-teacher-keys-timetable-sync.timer",
+      "service": "openai-teacher-keys-timetable-sync.service",
+      "warning_hours": 2,
+      "critical_hours": 3
+    },
+    {
+      "unit": "meta-api-daily-sync.timer",
+      "service": "meta-api-daily-sync.service",
+      "warning_hours": 30,
+      "critical_hours": 36
+    },
+    {
+      "unit": "meta-api-status-watcher.timer",
+      "service": "meta-api-status-watcher.service",
+      "warning_hours": 0.1667,
+      "critical_hours": 0.25
+    },
+    {
+      "unit": "dysk-sieciowy-mirror.timer",
+      "service": "dysk-sieciowy-mirror.service",
+      "warning_hours": 0.25,
+      "critical_hours": 0.5
+    },
+    {
+      "unit": "mail-handler-sheets-import.timer",
+      "service": "mail-handler-sheets-import.service",
+      "warning_hours": 30,
+      "critical_hours": 36
+    },
+    {
+      "unit": "google-api-daily-sync.timer",
+      "service": "google-api-daily-sync.service",
+      "warning_hours": 30,
+      "critical_hours": 36
+    },
+    {
+      "unit": "support-class-reporting.timer",
+      "service": "support-class-reporting.service",
+      "require_completion_after_trigger": true,
+      "completion_grace_seconds": 900,
+      "warning_hours": 84,
+      "critical_hours": 90,
+      "calendar_schedule": {
+        "weekdays": [1, 2, 3, 4, 5],
+        "hour": 7,
+        "minute": 0,
+        "timezone": "Europe/Warsaw",
+        "warning_delay_hours": 6,
+        "critical_delay_hours": 12
+      }
+    },
+    {
+      "unit": "support-class-reporting-subscription.timer",
+      "service": "support-class-reporting-subscription.service",
+      "warning_hours": 30,
+      "critical_hours": 48
+    },
+    {
+      "unit": "designmodo-api-daily-sync.timer",
+      "service": "designmodo-api-daily-sync.service",
+      "warning_hours": 30,
+      "critical_hours": 36
+    },
+    {
+      "unit": "meta-notifier-dispatch.timer",
+      "service": "meta-notifier-dispatch.service",
+      "warning_hours": 0.25,
+      "critical_hours": 0.5
+    },
+    {
+      "unit": "vsconline-baseline-restore.timer",
+      "service": "vsconline-baseline-restore.service",
+      "warning_hours": 30,
+      "critical_hours": 36
+    },
+    {
+      "unit": "vsconline-usage-report.timer",
+      "service": "vsconline-usage-report.service",
+      "warning_hours": 0.75,
+      "critical_hours": 1
+    },
+    {
+      "unit": "vm-manager-retention.timer",
+      "service": "vm-manager-retention.service",
+      "warning_hours": 30,
+      "critical_hours": 36
+    },
+    {
+      "unit": "vm-manager-status-notifier.timer",
+      "service": "vm-manager-status-notifier.service",
+      "warning_hours": 30,
+      "critical_hours": 36
+    },
+    {
+      "unit": "ld-planning-files-retention.timer",
+      "service": "ld-planning-files-retention.service",
+      "warning_hours": 2,
+      "critical_hours": 3
+    },
+    {
+      "unit": "schedule-publisher.timer",
+      "service": "schedule-publisher.service",
+      "warning_hours": 0.5,
+      "critical_hours": 0.75
+    },
+    {
+      "unit": "youtube-notifier-scan.timer",
+      "service": "youtube-notifier-scan.service",
+      "warning_hours": 0.25,
+      "critical_hours": 0.5
+    },
+    {
+      "unit": "gowork-notifier-scan.timer",
+      "service": "gowork-notifier-scan.service",
+      "warning_hours": 30,
+      "critical_hours": 36
+    },
+    {
+      "unit": "ai-imaging-cleanup.timer",
+      "service": "ai-imaging-cleanup.service",
+      "warning_hours": 0.25,
+      "critical_hours": 0.5
+    },
+    {
+      "unit": "ai-imaging-probe.timer",
+      "service": "ai-imaging-probe.service",
+      "warning_hours": 0.1,
+      "critical_hours": 0.2,
+      "require_completion_after_trigger": true,
+      "completion_grace_seconds": 30
+    },
+    {
+      "unit": "ai-music-cleanup.timer",
+      "service": "ai-music-cleanup.service",
+      "warning_hours": 0.25,
+      "critical_hours": 0.5
+    },
+    {
+      "unit": "ai-music-probe.timer",
+      "service": "ai-music-probe.service",
+      "warning_hours": 0.1,
+      "critical_hours": 0.2,
+      "require_completion_after_trigger": true,
+      "completion_grace_seconds": 30
+    },
+    {
+      "unit": "ai-audio-cleanup.timer",
+      "service": "ai-audio-cleanup.service",
+      "warning_hours": 0.25,
+      "critical_hours": 0.5
+    },
+    {
+      "unit": "ai-audio-probe.timer",
+      "service": "ai-audio-probe.service",
+      "warning_hours": 0.1,
+      "critical_hours": 0.2,
+      "require_completion_after_trigger": true,
+      "completion_grace_seconds": 30
+    },
+    {
+      "unit": "ai-video-cleanup.timer",
+      "service": "ai-video-cleanup.service",
+      "warning_hours": 0.25,
+      "critical_hours": 0.5
+    },
+    {
+      "unit": "ai-video-probe.timer",
+      "service": "ai-video-probe.service",
+      "warning_hours": 0.1,
+      "critical_hours": 0.2,
+      "require_completion_after_trigger": true,
+      "completion_grace_seconds": 30
+    },
+    {
+      "unit": "ai-imaging-legacy-retention.timer",
+      "service": "ai-imaging-legacy-retention.service",
+      "warning_hours": 30,
+      "critical_hours": 48
+    },
+    {
+      "unit": "minecraft-codebuilder-retention.timer",
+      "service": "minecraft-codebuilder-retention.service",
+      "warning_hours": 30,
+      "critical_hours": 48
+    },
+    {
+      "unit": "codinggiants-app-cdn-import.timer",
+      "service": "codinggiants-app-cdn-import.service",
+      "warning_hours": 2,
+      "critical_hours": 3,
+      "require_completion_after_trigger": true,
+      "completion_grace_seconds": 300
+    },
+    {
+      "unit": "online-compiler-keys-maintenance.timer",
+      "service": "online-compiler-keys-maintenance.service",
+      "warning_hours": 0.08333333333333333,
+      "critical_hours": 0.16666666666666666,
+      "require_completion_after_trigger": true,
+      "completion_grace_seconds": 120
+    }
+  ],
+  "endpoints": [
+    {
+      "name": "registration-website-mt-www-test",
+      "url": "https://mt-www-test.gp.edu.pl/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "komputery",
+      "url": "https://komputery.gp.edu.pl/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "dysk",
+      "url": "https://dysk.gp.edu.pl/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "ads-dashboard",
+      "url": "https://ads-dashboard.gp.edu.pl/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "ai-portal-gp",
+      "url": "https://ai.gp.edu.pl/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "ai-portal-de",
+      "url": "https://ai.codinggiants.de/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "ai-portal-es",
+      "url": "https://ai.codinggiants.es/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "ai-portal-mx",
+      "url": "https://ai.codinggiants.mx/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "ai-portal-com",
+      "url": "https://ai.codinggiants.com/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "ai-portal-apps",
+      "url": "https://ai.gp.edu.pl/apps.json",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "ai-portal-tools-launcher",
+      "url": "https://ai.gp.edu.pl/tools-launch/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "tools-portal",
+      "url": "https://narzedzia.gp.edu.pl/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "tools-portal-ai-catalog",
+      "url": "https://narzedzia.gp.edu.pl/ai-apps.json",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "ai-text-ready-gp",
+      "url": "https://ai.gp.edu.pl/text/health/ready",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ok": true,
+        "check": "ready",
+        "app_id": "ai-text"
+      }
+    },
+    {
+      "name": "ai-text-ready-de",
+      "url": "https://ai.codinggiants.de/text/health/ready",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ok": true,
+        "check": "ready",
+        "app_id": "ai-text"
+      }
+    },
+    {
+      "name": "ai-text-ready-es",
+      "url": "https://ai.codinggiants.es/text/health/ready",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ok": true,
+        "check": "ready",
+        "app_id": "ai-text"
+      }
+    },
+    {
+      "name": "ai-text-ready-mx",
+      "url": "https://ai.codinggiants.mx/text/health/ready",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ok": true,
+        "check": "ready",
+        "app_id": "ai-text"
+      }
+    },
+    {
+      "name": "ai-text-ready-com",
+      "url": "https://ai.codinggiants.com/text/health/ready",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ok": true,
+        "check": "ready",
+        "app_id": "ai-text"
+      }
+    },
+    {
+      "name": "imagenes-es",
+      "url": "https://imagenes.codinggiants.es/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "imagenes-mx",
+      "url": "https://imagenes.codinggiants.mx/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "images-com",
+      "url": "https://images.codinggiants.com/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "bilder-de",
+      "url": "https://bilder.codinggiants.de/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "koduj",
+      "url": "https://koduj.gp.edu.pl/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "online-compiler-com",
+      "url": "https://code.codinggiants.com/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "online-compiler-de",
+      "url": "https://code.codinggiants.de/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "online-compiler-es",
+      "url": "https://code.codinggiants.es/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "online-compiler-mx",
+      "url": "https://code.codinggiants.mx/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "hilfe-de",
+      "url": "https://hilfe.codinggiants.de/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "ld-planning-files-auth",
+      "url": "https://dysk.gp.edu.pl/ld-planning-files/current.json",
+      "allowed_statuses": [
+        401
+      ]
+    },
+    {
+      "name": "schedule-publisher-public",
+      "url": "https://dysk.gp.edu.pl/schedules/v1/current.json",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "scratchjr",
+      "url": "https://scratchjr.gp.edu.pl/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "otwarte",
+      "url": "https://otwarte.gp.edu.pl/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "panel",
+      "url": "https://panel.gp.edu.pl/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "umowa",
+      "url": "https://umowa.gp.edu.pl/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "crm",
+      "url": "https://crm.gp.edu.pl/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "digital",
+      "url": "https://digital.gp.edu.pl/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "zapis",
+      "url": "https://zapis.gp.edu.pl/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "sprawdz",
+      "url": "https://sprawdz.gp.edu.pl/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "soporte-es",
+      "url": "https://soporte.codinggiants.es/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "soporte-mx",
+      "url": "https://soporte.codinggiants.mx/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "vm-manager-public",
+      "url": "https://dysk.gp.edu.pl/vm/health",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "meta-api-public",
+      "url": "https://dysk.gp.edu.pl/meta-api/"
+    },
+    {
+      "name": "meta-notifier-public",
+      "url": "https://dysk.gp.edu.pl/social-comments/health",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "openai-teacher-keys-public",
+      "url": "https://dysk.gp.edu.pl/openai-teacher-keys/health",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "auth-gp-public",
+      "url": "https://auth.gp.edu.pl/health",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "mcp-gateway-public",
+      "url": "https://mcp.gp.edu.pl/health",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ok": true,
+        "catalog_errors": []
+      }
+    },
+    {
+      "name": "meta-api-privacy",
+      "url": "https://dysk.gp.edu.pl/m-ads-api/privacy-policy",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "meta-api-deletion",
+      "url": "https://dysk.gp.edu.pl/m-ads-api/data-deletion",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "meta-api-mcp-public",
+      "url": "https://dysk.gp.edu.pl/meta-api/mcp"
+    },
+    {
+      "name": "oauth-resource-metadata",
+      "url": "https://dysk.gp.edu.pl/.well-known/oauth-protected-resource/meta-api/mcp"
+    },
+    {
+      "name": "oauth-server-metadata",
+      "url": "https://dysk.gp.edu.pl/.well-known/oauth-authorization-server"
+    },
+    {
+      "name": "meta-api-local",
+      "url": "http://127.0.0.1:8090/health",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "status": "ok"
+      }
+    },
+    {
+      "name": "google-api-local",
+      "url": "http://127.0.0.1:8094/health",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "google-api-mcp-local",
+      "url": "http://127.0.0.1:8097/health",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "meta-api-mcp-local",
+      "url": "http://127.0.0.1:8091/mcp"
+    },
+    {
+      "name": "vm-manager-local",
+      "url": "http://127.0.0.1:8092/health",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "vm-manager-inventory-sync-local",
+      "url": "http://127.0.0.1:8092/internal/inventory-sync-health",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ok": true
+      }
+    },
+    {
+      "name": "meta-notifier-local",
+      "url": "http://127.0.0.1:8095/health",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ok": true,
+        "pending_dispatches": 0,
+        "failed_dispatches": 0
+      }
+    },
+    {
+      "name": "mail-handler-local",
+      "url": "http://127.0.0.1:8093/health",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "designmodo-api-local",
+      "url": "http://127.0.0.1:8098/health",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "designmodo-api-mcp-public",
+      "url": "https://dysk.gp.edu.pl/designmodo-api/mcp",
+      "allowed_statuses": [
+        401
+      ]
+    },
+    {
+      "name": "designmodo-api-mcp-local",
+      "url": "http://127.0.0.1:8099/health",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "openai-teacher-keys-local",
+      "url": "http://127.0.0.1:8100/health",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "ai-text-live-local",
+      "url": "http://127.0.0.1:8108/health/live",
+      "host_header": "ai.gp.edu.pl",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ok": true,
+        "check": "live",
+        "app_id": "ai-text"
+      }
+    },
+    {
+      "name": "ai-text-ready-local",
+      "url": "http://127.0.0.1:8108/health/ready",
+      "host_header": "ai.gp.edu.pl",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ok": true,
+        "check": "ready",
+        "app_id": "ai-text"
+      }
+    },
+    {
+      "name": "ai-text-backlog-local",
+      "url": "http://127.0.0.1:8108/health/ops/backlog",
+      "host_header": "ai.gp.edu.pl",
+      "allowed_statuses": [200],
+      "expected_json": {"ok": true, "check": "backlog", "app_id": "ai-text"}
+    },
+    {
+      "name": "ai-text-provider-local",
+      "url": "http://127.0.0.1:8108/health/ops/provider",
+      "host_header": "ai.gp.edu.pl",
+      "allowed_statuses": [200],
+      "expected_json": {"ok": true, "check": "provider", "app_id": "ai-text"}
+    },
+    {
+      "name": "ai-text-moderation-local",
+      "url": "http://127.0.0.1:8108/health/ops/moderation",
+      "host_header": "ai.gp.edu.pl",
+      "allowed_statuses": [200],
+      "expected_json": {"ok": true, "check": "moderation", "app_id": "ai-text"}
+    },
+    {
+      "name": "ai-text-reconciliation-local",
+      "url": "http://127.0.0.1:8108/health/ops/reconciliation",
+      "host_header": "ai.gp.edu.pl",
+      "allowed_statuses": [200],
+      "expected_json": {"ok": true, "check": "reconciliation", "app_id": "ai-text"}
+    },
+    {
+      "name": "ai-text-ledger-local",
+      "url": "http://127.0.0.1:8108/health/ops/ledger",
+      "host_header": "ai.gp.edu.pl",
+      "allowed_statuses": [200],
+      "expected_json": {"ok": true, "check": "ledger", "app_id": "ai-text"}
+    },
+    {
+      "name": "ai-text-cleanup-local",
+      "url": "http://127.0.0.1:8108/health/ops/cleanup",
+      "host_header": "ai.gp.edu.pl",
+      "allowed_statuses": [200],
+      "expected_json": {"ok": true, "check": "cleanup", "app_id": "ai-text"}
+    },
+    {
+      "name": "ai-text-lifecycle-local",
+      "url": "http://127.0.0.1:8108/health/ops/lifecycle",
+      "host_header": "ai.gp.edu.pl",
+      "allowed_statuses": [200],
+      "expected_json": {"ok": true, "check": "lifecycle", "app_id": "ai-text"}
+    },
+    {
+      "name": "ai-text-storage-local",
+      "url": "http://127.0.0.1:8108/health/ops/storage",
+      "host_header": "ai.gp.edu.pl",
+      "allowed_statuses": [200],
+      "expected_json": {"ok": true, "check": "storage", "app_id": "ai-text"}
+    },
+    {
+      "name": "ai-text-worker-local",
+      "url": "http://127.0.0.1:8108/health/ops/worker",
+      "host_header": "ai.gp.edu.pl",
+      "allowed_statuses": [200],
+      "expected_json": {"ok": true, "check": "worker", "app_id": "ai-text"}
+    },
+    {
+      "name": "ai-text-tools-local",
+      "url": "http://127.0.0.1:8108/health/ops/tools",
+      "host_header": "ai.gp.edu.pl",
+      "allowed_statuses": [200],
+      "expected_json": {"ok": true, "check": "tools", "app_id": "ai-text"}
+    },
+    {
+      "name": "ai-text-web-local",
+      "url": "http://127.0.0.1:8108/health/ops/web",
+      "host_header": "ai.gp.edu.pl",
+      "allowed_statuses": [200],
+      "expected_json": {"ok": true, "check": "web", "app_id": "ai-text"}
+    },
+    {
+      "name": "auth-gp-local",
+      "url": "http://127.0.0.1:8104/health",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "password-provide-local",
+      "url": "http://127.0.0.1:8106/health",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ok": true,
+        "applications": [
+          "canva",
+          "vsconline"
+        ]
+      }
+    },
+    {
+      "name": "online-compiler-keys-local",
+      "url": "http://127.0.0.1:8107/health",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ok": true,
+        "application": "online-compiler"
+      }
+    },
+    {
+      "name": "trustpilot-notifier-local",
+      "url": "http://127.0.0.1:8115/health",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ready": true,
+        "processing_enabled": true,
+        "auto_reply_enabled": true,
+        "auth_required": false,
+        "auto_reply_ready": true
+      }
+    },
+    {
+      "name": "canva-pro-keys-local",
+      "url": "http://127.0.0.1:8116/health",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ok": true,
+        "service": "canva-pro-keys",
+        "application": "canva-pro",
+        "database": true,
+        "account_keys": [
+          "CANVA",
+          "CANVA1",
+          "CANVA2",
+          "CANVA3"
+        ],
+        "password_source": true
+      }
+    },
+    {
+      "name": "google-mybusiness-notifier-api-local",
+      "url": "http://127.0.0.1:8096/health",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "status": "ok",
+        "database_backend": "postgresql"
+      }
+    },
+    {
+      "name": "schedule-publisher-local",
+      "url": "http://127.0.0.1:8105/schedules/v1/status.json",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "mcp-gateway-local",
+      "url": "http://127.0.0.1:8101/health",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ok": true,
+        "catalog_errors": []
+      }
+    },
+    {
+      "name": "vsconline-pl",
+      "url": "https://vscode.giganciprogramowania.edu.pl/",
+      "allowed_statuses": [
+        200,
+        302
+      ]
+    },
+    {
+      "name": "vsconline-com",
+      "url": "https://vscode.codinggiants.com/",
+      "allowed_statuses": [
+        200,
+        302
+      ]
+    },
+    {
+      "name": "vsconline-es",
+      "url": "https://vscode.codinggiants.es/",
+      "allowed_statuses": [
+        200,
+        302
+      ]
+    },
+    {
+      "name": "vsconline-de",
+      "url": "https://vscode.codinggiants.de/",
+      "allowed_statuses": [
+        200,
+        302
+      ]
+    },
+    {
+      "name": "vsconline-mx",
+      "url": "https://vscode.codinggiants.mx/",
+      "allowed_statuses": [
+        200,
+        302
+      ]
+    },
+    {
+      "name": "vsconline-gp",
+      "url": "https://vscode.gp.edu.pl/",
+      "allowed_statuses": [
+        200,
+        302
+      ]
+    },
+    {
+      "name": "vsconline-drive-pl",
+      "url": "https://vscode.giganciprogramowania.edu.pl/drive/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "vsconline-drive-com",
+      "url": "https://vscode.codinggiants.com/drive/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "vsconline-drive-es",
+      "url": "https://vscode.codinggiants.es/drive/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "vsconline-drive-de",
+      "url": "https://vscode.codinggiants.de/drive/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "vsconline-drive-mx",
+      "url": "https://vscode.codinggiants.mx/drive/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "vsconline-drive-gp",
+      "url": "https://vscode.gp.edu.pl/drive/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "ai-imaging-ready-gp",
+      "url": "https://ai.gp.edu.pl/imaging/health/ready",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-imaging",
+        "generation_mode": "flare",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "openrouter": true,
+        "transparency": true,
+        "legacy_bria": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-imaging-ready-de",
+      "url": "https://ai.codinggiants.de/imaging/health/ready",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-imaging",
+        "generation_mode": "flare",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "openrouter": true,
+        "transparency": true,
+        "legacy_bria": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-imaging-ready-es",
+      "url": "https://ai.codinggiants.es/imaging/health/ready",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-imaging",
+        "generation_mode": "flare",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "openrouter": true,
+        "transparency": true,
+        "legacy_bria": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-imaging-ready-mx",
+      "url": "https://ai.codinggiants.mx/imaging/health/ready",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-imaging",
+        "generation_mode": "flare",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "openrouter": true,
+        "transparency": true,
+        "legacy_bria": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-imaging-ready-com",
+      "url": "https://ai.codinggiants.com/imaging/health/ready",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-imaging",
+        "generation_mode": "flare",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "openrouter": true,
+        "transparency": true,
+        "legacy_bria": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-music-ready-gp",
+      "url": "https://ai.gp.edu.pl/music/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-music",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "openrouter": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-music-ready-de",
+      "url": "https://ai.codinggiants.de/music/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-music",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "openrouter": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-music-ready-es",
+      "url": "https://ai.codinggiants.es/music/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-music",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "openrouter": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-music-ready-mx",
+      "url": "https://ai.codinggiants.mx/music/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-music",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "openrouter": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-music-ready-com",
+      "url": "https://ai.codinggiants.com/music/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-music",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "openrouter": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-audio-ready-gp",
+      "url": "https://ai.gp.edu.pl/audio/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-audio",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "providers": true,
+        "audio_exports": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-audio-ready-de",
+      "url": "https://ai.codinggiants.de/audio/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-audio",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "providers": true,
+        "audio_exports": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-audio-ready-es",
+      "url": "https://ai.codinggiants.es/audio/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-audio",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "providers": true,
+        "audio_exports": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-audio-ready-mx",
+      "url": "https://ai.codinggiants.mx/audio/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-audio",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "providers": true,
+        "audio_exports": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-audio-ready-com",
+      "url": "https://ai.codinggiants.com/audio/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-audio",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "providers": true,
+        "audio_exports": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-video-ready-gp",
+      "url": "https://ai.gp.edu.pl/video/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-video",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "openrouter": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-video-ready-de",
+      "url": "https://ai.codinggiants.de/video/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-video",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "openrouter": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-video-ready-es",
+      "url": "https://ai.codinggiants.es/video/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-video",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "openrouter": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-video-ready-mx",
+      "url": "https://ai.codinggiants.mx/video/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-video",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "openrouter": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-video-ready-com",
+      "url": "https://ai.codinggiants.com/video/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {
+        "ok": true,
+        "app_id": "ai-video",
+        "database": true,
+        "templates": true,
+        "moderation": true,
+        "openrouter": true,
+        "storage": true,
+        "auth_gp": true,
+        "worker": true,
+        "cleanup": true,
+        "ledger": true,
+        "backlog": true
+      },
+      "timeout_seconds": 8
+    },
+    {
+      "name": "ai-imaging-legacy-gp",
+      "url": "https://grafika.gp.edu.pl/",
+      "allowed_statuses": [
+        200
+      ]
+    },
+    {
+      "name": "minecraft-codebuilder-backend-ready",
+      "url": "http://127.0.0.1:8113/health/ready",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "status": "ready"
+      }
+    },
+    {
+      "name": "minecraft-codebuilder-project-share-storage",
+      "url": "http://127.0.0.1:8113/health/ops/storage",
+      "allowed_statuses": [
+        200
+      ],
+      "expected_json": {
+        "status": "ok"
+      }
+    },
+    {
+      "name": "minecraft-codebuilder-public",
+      "url": "https://minecraft.gp.edu.pl/",
+      "allowed_statuses": [
+        200
+      ]
+    }
+  ],
+  "dns_endpoints": [
+    {
+      "name": "dnsproxy1-ipv4",
+      "server": "145.239.83.162",
+      "transports": [
+        "udp",
+        "tcp"
+      ]
+    },
+    {
+      "name": "dnsproxy1-ipv6",
+      "server": "2001:41d0:601:1100::29a6",
+      "transports": [
+        "udp",
+        "tcp"
+      ]
+    },
+    {
+      "name": "dnsproxy2-ipv4",
+      "server": "51.75.74.125",
+      "transports": [
+        "udp",
+        "tcp"
+      ]
+    },
+    {
+      "name": "dnsproxy2-ipv6",
+      "server": "2001:41d0:701:1100::8db3",
+      "transports": [
+        "udp",
+        "tcp"
+      ]
+    }
+  ],
+  "cron_jobs": [
+    {
+      "name": "dysk-sieciowy-sync",
+      "command_marker": "/usr/local/bin/dysk-sieciowy-sync.sh",
+      "heartbeat": "/var/lib/gp-monitor/cron/dysk-sieciowy-sync.last_success",
+      "warning_hours": 30,
+      "critical_hours": 36
+    },
+    {
+      "name": "dysk-vm-sync",
+      "command_marker": "/usr/local/bin/dysk-vm-sync.sh",
+      "heartbeat": "/var/lib/gp-monitor/cron/dysk-vm-sync.last_success",
+      "warning_hours": 30,
+      "critical_hours": 36
+    },
+    {
+      "name": "public-ips-export",
+      "command_marker": "/var/www/dysk/files/public_IPs",
+      "heartbeat": "/var/lib/gp-monitor/cron/public-ips-export.last_success",
+      "warning_hours": 0.05,
+      "critical_hours": 0.0834
+    }
+  ],
+  "user_units": {
+    "user": "ubuntu",
+    "uid": 1000,
+    "timers": [
+      {
+        "unit": "mbsync-archive@forkids.timer",
+        "service": "mbsync-archive@forkids.service",
+        "warning_hours": 1.5,
+        "critical_hours": 2.5
+      },
+      {
+        "unit": "mbsync-archive@forkids-biuro.timer",
+        "service": "mbsync-archive@forkids-biuro.service",
+        "warning_hours": 1.5,
+        "critical_hours": 2.5
+      },
+      {
+        "unit": "imap-delete-old@forkids.timer",
+        "service": "imap-delete-old@forkids.service",
+        "suspended_until": "2026-11-01T00:15:00+01:00",
+        "warning_hours": 30,
+        "critical_hours": 48
+      },
+      {
+        "unit": "imap-delete-old@forkids-biuro.timer",
+        "service": "imap-delete-old@forkids-biuro.service",
+        "warning_hours": 30,
+        "critical_hours": 48
+      },
+      {
+        "unit": "mail-archive-compress@forkids.timer",
+        "service": "mail-archive-compress@forkids.service",
+        "suspended_until": "2026-11-01T00:15:00+01:00",
+        "warning_hours": 192,
+        "critical_hours": 240
+      },
+      {
+        "unit": "mail-archive-compress@forkids-biuro.timer",
+        "service": "mail-archive-compress@forkids-biuro.service",
+        "warning_hours": 192,
+        "critical_hours": 240
+      }
+    ]
+  },
+  "online_compiler_availability": {
+    "api_url": "https://koduj.gp.edu.pl/api/availability",
+    "fallback_url": "https://koduj.gp.edu.pl/availability-status.json",
+    "transition_seconds": 1800
+  }
+}

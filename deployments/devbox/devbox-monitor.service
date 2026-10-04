@@ -1,0 +1,19 @@
+[Unit]
+Description=Devbox health monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/devbox-monitor/telegram.env
+ExecStart=%h/.local/lib/devbox-monitor/devbox-monitor.py
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=%h/.local/state/devbox-monitor
+StateDirectory=devbox-monitor
+StateDirectoryMode=0700
+StandardOutput=journal
+StandardError=journal
