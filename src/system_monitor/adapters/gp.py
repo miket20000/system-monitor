@@ -17,7 +17,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -1886,7 +1886,11 @@ def timestamp_epoch(timestamp: str) -> float | None:
         except ValueError:
             return None
     if parsed.tzinfo is None:
-        parsed = parsed.astimezone()
+        parsed = (
+            parsed.replace(tzinfo=timezone.utc)
+            if timestamp.endswith((" UTC", " GMT"))
+            else parsed.astimezone()
+        )
     return parsed.timestamp()
 
 

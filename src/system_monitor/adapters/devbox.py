@@ -16,7 +16,7 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -1049,7 +1049,11 @@ def timestamp_epoch(timestamp: str) -> float | None:
         except ValueError:
             return None
     if parsed.tzinfo is None:
-        parsed = parsed.astimezone()
+        parsed = (
+            parsed.replace(tzinfo=timezone.utc)
+            if timestamp.endswith((" UTC", " GMT"))
+            else parsed.astimezone()
+        )
     return parsed.timestamp()
 
 

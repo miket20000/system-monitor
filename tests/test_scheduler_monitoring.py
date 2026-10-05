@@ -237,6 +237,12 @@ class DeadManTests(unittest.TestCase):
             "--property=ExecMainStatus", "--property=ExecMainExitTimestamp", "--no-pager",
         ])
 
+    def test_systemd_utc_timestamp_is_not_reinterpreted_as_local_time(self):
+        expected = datetime(2026, 10, 5, 12, 50, 17, tzinfo=timezone.utc).timestamp()
+        self.assertEqual(
+            devbox.timestamp_epoch("Mon 2026-10-05 12:50:17 UTC"), expected,
+        )
+
     def test_dead_man_failure_requires_three_cycles_before_new_alert(self):
         monitor = self.monitor()
         monitor.run_command = lambda command, timeout=15: completed(command, 255)

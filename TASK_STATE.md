@@ -1,5 +1,7 @@
 # System Monitor — Task State
 
+Updated: 2026-10-05 15:22 CEST (Europe/Warsaw)
+
 ## Goal
 
 Make `system-monitor` the sole owner of Online Compiler alerts, reminders and
@@ -36,13 +38,13 @@ scheduler-health signals.
 - Backup, verification, retention, restore-test and GP mail-archive jobs have
   explicit LOW display names, including `Backup Devbox`, `Backup GP` and
   `Archiwizacja poczty GP`.
-- The notification fix was deployed devbox-first. Natural cycles at 07:15 and
-  07:20 CEST completed with exit code 0; no deployment-triggered notification
-  was sent, the user timer is active and state v3 remains mode 0600.
-- GP natural cycles at 07:25 and 07:30 CEST completed with exit code 0. The
-  continuously failing Meta API status watcher retained one active MEDIUM
-  incident with no pending event or new delivery; the system timer is active
-  and state v3 remains mode 0600.
+- GP-local scheduler checks are deployed in the root system runtime, and the
+  three-cycle GP dead-man is deployed in the devbox user runtime. Production
+  state v3 was preserved on both hosts; source/runtime/profile/priority hashes
+  match and both timers are active.
+- Private-state shadow runs used both `--no-notify` and a private state copy.
+  GP returned all configured results with all seven Online Compiler checks OK;
+  devbox returned `remote-dead-man:gp-monitor=OK`.
 - Existing incidents migrated without `[NEW]` replay. Devbox delivered four
   preserved LOW incidents as one reminder digest. GP delivered the preserved
   `dysk-sieciowy-sync` incident as a LOW reminder.
@@ -52,6 +54,10 @@ scheduler-health signals.
   the original cutover. The notification-fix rollbacks are at
   `/home/miket/.local/state/system-monitor-rollbacks/20261005T070919+0200/devbox`
   and root-only `/root/system-monitor-rollbacks/20261005T070919+0200/gp`.
+- Scheduler-cutover rollbacks are at
+  `/home/miket/.local/state/system-monitor-rollbacks/20261005T1450-gp-deadman`
+  on devbox and root-only
+  `/root/system-monitor-rollbacks/20261005T1425-gp-scheduler-cutover` on GP.
 
 ## Validation
 
@@ -73,19 +79,24 @@ scheduler-health signals.
   assertions excluded Password Reset; the tests were updated to the approved
   new coverage and the complete rerun passed. This result is retained rather
   than rewritten as an initial pass.
-- PASS: scheduler/dead-man additions bring the current total to 193 tests:
-  23 notification tests, 12 scheduler/dead-man tests, 60 devbox legacy tests
-  and 98 GP legacy tests. `py_compile`, all three JSON files, diff checks and
-  the secret scan also pass.
+- PASS: scheduler/dead-man additions bring the current total to 194 tests and
+  38 subtests. Coverage includes local scheduler state, separate environment/
+  health/freshness/idle signals, migration without replay, two-cycle recovery,
+  six-hour reminders and three-cycle dead-man behavior.
 - Retained final validation evidence: the first all-suite rerun inside the
   restricted sandbox had 15 test-harness failures because the repository was
   mounted read-only and legacy tests could not remove their temporary state
   file; 178 tests still passed. The identical host-context rerun passed all
-  193 tests and 38 subtests.
-- The new monitor code has not been deployed. The Online Compiler GP cutover is
-  blocked before its first cycle because the scheduler identities lack
-  authority to create the required WIF providers. GP scheduler timers remain
-  disabled/inactive and devbox remains the only scheduler writer.
+  193 tests and 38 subtests. The final host-context suite after the UTC parser
+  correction passed all 194 tests and 38 subtests.
+- The first devbox shadow during deployment reported a false dead-man CRITICAL
+  because systemd's textual `UTC` timestamp was parsed as naive local time. The
+  parser now attaches UTC explicitly for `UTC`/`GMT`; the regression test,
+  repeated shadow and natural cycles are healthy.
+- Natural GP monitor cycles observed the migrated schedulers. The existing
+  Next Dev incident recovered after healthy confirmation through its preserved
+  key, without `[NEW]` replay. All Online Compiler checks have
+  `alert_active=false`, severity OK and no pending notifications.
 
 ## Constraints
 
@@ -99,16 +110,12 @@ scheduler-health signals.
 ## START HERE
 
 1. Read this file and check all three repository worktrees before editing.
-2. Wait for Online Compiler GP WIF/auth validation and the scheduler
-   single-writer cutover gate. Do not deploy local GP scheduler checks against
-   an incomplete runtime or replace the production monitor state.
-3. Before deployment, create private runtime/config/state backups, verify the
-   existing incident keys in state, and run GP shadow validation with
-   `--no-notify --state-file` on a private copy/path.
-4. Deploy GP-local checks first while preserving the production state, then
-   deploy the devbox three-cycle dead-man probe. Verify source/runtime hashes,
-   unit configuration and two natural monitor cycles without generating a
-   synthetic failure or notification.
-5. Preserve installed entrypoints, state paths, environment permissions and
+2. Verify the GP system timer and devbox user timer remain active and their most
+   recent services completed successfully. Check the seven Online Compiler keys
+   and `remote-dead-man:gp-monitor` without clearing or replacing state.
+3. Keep GP-local scheduler checks and the devbox three-cycle dead-man probe.
+   Any shadow validation must use both `--no-notify` and a private state path;
+   do not manufacture a failure to test notification delivery.
+4. Preserve installed entrypoints, state paths, environment permissions and
    the three-channel message contract. Investigate application incidents in
    their owning repository and never clear monitor state to force recovery.
