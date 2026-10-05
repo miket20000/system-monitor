@@ -118,6 +118,54 @@ class NotificationEngineTests(unittest.TestCase):
         self.assertEqual(self.sender.calls[0][0], 3)
         self.assertTrue(self.sender.calls[0][1].startswith("[NEW]\n"))
 
+    def test_changing_durable_evidence_stays_one_incident_until_recovery(self):
+        def failed(invocation_id):
+            return result(
+                "system-service:meta-api-status-watcher.service:result",
+                "critical",
+                "last run failed",
+                incident_id=invocation_id,
+                notification_class="durable",
+            )
+
+        self.cycle(failed("invocation-1"))
+        self.assertEqual(len(self.sender.calls), 1)
+        self.assertTrue(self.sender.calls[0][1].startswith("[NEW]\n"))
+        self.sender.calls.clear()
+
+        self.cycle(failed("invocation-2"))
+        self.cycle(failed("invocation-3"))
+        self.assertEqual(self.sender.calls, [])
+        self.assertEqual(
+            self.state["checks"]["system-service:meta-api-status-watcher.service:result"]["incident_id"],
+            "invocation-3",
+        )
+
+        last_notification = self.state["checks"][
+            "system-service:meta-api-status-watcher.service:result"
+        ]["last_notification"]
+        self.now = last_notification + 21600
+        self.cycle(failed("invocation-4"))
+        self.assertEqual(len(self.sender.calls), 1)
+        self.assertTrue(self.sender.calls[0][1].startswith("[REMINDER]\n"))
+
+        self.sender.calls.clear()
+        healthy = result(
+            "system-service:meta-api-status-watcher.service:result",
+            "ok",
+            "healthy",
+            incident_id="invocation-4",
+            notification_class="durable",
+        )
+        self.cycle(healthy)
+        self.assertEqual(self.sender.calls, [])
+        self.cycle(healthy)
+        self.assertTrue(self.sender.calls[0][1].startswith("[RESOLVED]\n"))
+
+        self.sender.calls.clear()
+        self.cycle(failed("invocation-5"))
+        self.assertTrue(self.sender.calls[0][1].startswith("[NEW]\n"))
+
     def test_recovery_requires_two_healthy_cycles(self):
         failure = result("service:ai-text.service", "critical", "not active", notification_class="durable", incident_id="one")
         self.cycle(failure)
@@ -243,6 +291,32 @@ class NotificationEngineTests(unittest.TestCase):
         self.cycle(low)
         self.assertEqual(self.sender.calls[0][0], 3)
 
+    def test_pending_low_event_uses_current_configured_name(self):
+        key = "user-service:vps-restic-gp-mail-purge.service:result"
+        self.state["pending_notifications"] = {
+            f"3:RESOLVED:{key}": {
+                "key": key,
+                "priority": 3,
+                "status": "RESOLVED",
+                "name": "Backup",
+                "problem": "backup ponownie zakończył się pomyślnie",
+                "host": "devbox",
+            }
+        }
+        self.cycle(
+            result(
+                key,
+                "ok",
+                "healthy",
+                incident_id="mail-archive-1",
+                notification_class="durable",
+            ),
+            notify=False,
+        )
+        event = next(iter(self.state["pending_notifications"].values()))
+        self.assertEqual(event["name"], "Archiwizacja poczty GP")
+        self.assertEqual(event["problem"], "zadanie ponownie zakończyło się pomyślnie")
+
     def test_low_digest_uses_warsaw_date_across_dst(self):
         self.now = datetime(2026, 3, 29, 7, 30, tzinfo=ZoneInfo("Europe/Warsaw")).timestamp()
         low = result(
@@ -323,6 +397,28 @@ class ProfileTests(unittest.TestCase):
         }
         for key, expected in cases.items():
             self.assertEqual(registry.display(key, "last run failed").priority, expected, key)
+
+    def test_backup_and_mail_archive_jobs_have_unambiguous_names(self):
+        registry = PriorityRegistry.load(ROOT / "config/priorities.json")
+        cases = {
+            "system-service:devbox-system-backup.service:result": "Backup Devbox",
+            "system-service:devbox-system-backup-retention.service:result": "Retencja backupu Devbox",
+            "system-service:devbox-system-backup-check.service:result": "Weryfikacja backupu Devbox",
+            "system-service:devbox-system-backup-data-check.service:result": "Kontrola danych backupu Devbox",
+            "system-service:devbox-system-backup-restore-test.service:result": "Test odtwarzania backupu Devbox",
+            "user-service:vps-restic-backup.service:result": "Backup GP",
+            "user-service:vps-restic-check.service:result": "Weryfikacja backupu GP",
+            "user-service:vps-restic-retention.service:result": "Retencja backupu GP",
+            "user-service:vps-restic-data-check.service:result": "Kontrola danych backupu GP",
+            "user-service:vps-restic-gp-mail-purge.service:result": "Archiwizacja poczty GP",
+        }
+        names = []
+        for key, expected_name in cases.items():
+            display = registry.display(key, "last run failed")
+            self.assertEqual(display.priority, 3, key)
+            self.assertEqual(display.name, expected_name, key)
+            names.append(display.name)
+        self.assertEqual(len(names), len(set(names)))
 
 
 if __name__ == "__main__":

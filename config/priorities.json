@@ -11,6 +11,92 @@
     },
     {
       "patterns": [
+        "system-timer:devbox-system-backup.timer",
+        "system-service:devbox-system-backup.service:result"
+      ],
+      "priority": 3,
+      "name": "Backup Devbox",
+      "problem": "ostatni poprawny backup jest przeterminowany",
+      "resolved": "backup ponownie zakończył się pomyślnie"
+    },
+    {
+      "patterns": [
+        "system-timer:devbox-system-backup-retention.timer",
+        "system-service:devbox-system-backup-retention.service:result"
+      ],
+      "priority": 3,
+      "name": "Retencja backupu Devbox"
+    },
+    {
+      "patterns": [
+        "system-timer:devbox-system-backup-check.timer",
+        "system-service:devbox-system-backup-check.service:result"
+      ],
+      "priority": 3,
+      "name": "Weryfikacja backupu Devbox"
+    },
+    {
+      "patterns": [
+        "system-timer:devbox-system-backup-data-check.timer",
+        "system-service:devbox-system-backup-data-check.service:result"
+      ],
+      "priority": 3,
+      "name": "Kontrola danych backupu Devbox"
+    },
+    {
+      "patterns": [
+        "system-timer:devbox-system-backup-restore-test.timer",
+        "system-service:devbox-system-backup-restore-test.service:result"
+      ],
+      "priority": 3,
+      "name": "Test odtwarzania backupu Devbox"
+    },
+    {
+      "patterns": [
+        "user-timer:vps-restic-backup.timer",
+        "user-service:vps-restic-backup.service:result"
+      ],
+      "priority": 3,
+      "name": "Backup GP",
+      "problem": "ostatni poprawny backup jest przeterminowany",
+      "resolved": "backup ponownie zakończył się pomyślnie"
+    },
+    {
+      "patterns": [
+        "user-timer:vps-restic-check.timer",
+        "user-service:vps-restic-check.service:result"
+      ],
+      "priority": 3,
+      "name": "Weryfikacja backupu GP"
+    },
+    {
+      "patterns": [
+        "user-timer:vps-restic-retention.timer",
+        "user-service:vps-restic-retention.service:result"
+      ],
+      "priority": 3,
+      "name": "Retencja backupu GP"
+    },
+    {
+      "patterns": [
+        "user-timer:vps-restic-data-check.timer",
+        "user-service:vps-restic-data-check.service:result"
+      ],
+      "priority": 3,
+      "name": "Kontrola danych backupu GP"
+    },
+    {
+      "patterns": [
+        "user-timer:vps-restic-gp-mail-purge.timer",
+        "user-service:vps-restic-gp-mail-purge.service:result"
+      ],
+      "priority": 3,
+      "name": "Archiwizacja poczty GP",
+      "problem": "zadanie archiwizacji nie zakończyło się prawidłowo",
+      "resolved": "zadanie ponownie zakończyło się pomyślnie"
+    },
+    {
+      "patterns": [
         "system-timer:*backup*", "system-service:*backup*:result",
         "user-timer:*backup*", "user-service:*backup*:result",
         "user-timer:*restic*", "user-service:*restic*:result"

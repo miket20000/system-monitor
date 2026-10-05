@@ -220,6 +220,29 @@ class NotificationEngine:
         pending = state.setdefault("pending_notifications", {})
         pending[self._pending_id(event)] = event
 
+    def _refresh_pending(
+        self,
+        state: dict[str, Any],
+        *,
+        key: str,
+        display: Display,
+    ) -> None:
+        pending = state.setdefault("pending_notifications", {})
+        for event_id, event in list(pending.items()):
+            if event.get("key") != key:
+                continue
+            refreshed = {
+                **event,
+                "priority": display.priority,
+                "name": display.name,
+                "problem": display.resolved if event.get("status") == "RESOLVED" else display.problem,
+                "host": self.host,
+            }
+            refreshed_id = self._pending_id(refreshed)
+            if refreshed_id != event_id:
+                pending.pop(event_id, None)
+            pending[refreshed_id] = refreshed
+
     def process(self, state: dict[str, Any], results: Iterable[Any]) -> None:
         checks = state.setdefault("checks", {})
         current_keys: set[str] = set()
@@ -238,11 +261,7 @@ class NotificationEngine:
                     previous_severity != "ok" and last_notification > 0,
                 )
             )
-            previous_incident = str(previous.get("incident_id", ""))
             incident = str(getattr(result, "incident_id", "") or "")
-            if incident and previous_incident and incident != previous_incident:
-                alert_active = False
-                previous = {}
 
             failure_streak = int(previous.get("failure_streak", 0))
             recovery_streak = int(previous.get("recovery_streak", 0))
@@ -307,6 +326,7 @@ class NotificationEngine:
                 "problem": display.problem,
                 "resolved": display.resolved,
             }
+            self._refresh_pending(state, key=key, display=display)
 
         for key in list(checks):
             if key not in current_keys and self.now - float(checks[key].get("last_seen", 0)) > 86400:

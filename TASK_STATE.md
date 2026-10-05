@@ -14,30 +14,46 @@ failure domains.
   `sysmon-low` groups. Each contains the owner and `mt_monitoring_agent`; the
   exact configuration message was verified in all three groups. Chat IDs and
   the bot token remain only in protected runtime environment files.
-- Full imported and shared test suites pass after updating the expected
-  password-reset coverage. Isolated host-context shadow runs match all 71
-  legacy devbox probes and all 312 legacy GP probes; intentional additions are
-  six password-reset checks and the public Designmodo MCP endpoint.
-- Devbox was cut over first. Natural cycles at 22:00 and 22:05 CEST completed
-  with exit code 0; the user timer is active and the state is v3 mode 0600.
-- GP was then cut over. Natural cycles at 22:10 and 22:15 CEST completed with
-  exit code 0; the system timer is active and the state is v3 mode 0600.
+- Incident lifecycle is keyed by the technical check and continuous unhealthy
+  period. A changing durable evidence ID updates the stored evidence but does
+  not reopen `[NEW]`; another `[NEW]` is possible only after two healthy cycles
+  confirm recovery. Pending events are refreshed from the current registry.
+- Backup, verification, retention, restore-test and GP mail-archive jobs have
+  explicit LOW display names, including `Backup Devbox`, `Backup GP` and
+  `Archiwizacja poczty GP`.
+- The notification fix was deployed devbox-first. Natural cycles at 07:15 and
+  07:20 CEST completed with exit code 0; no deployment-triggered notification
+  was sent, the user timer is active and state v3 remains mode 0600.
+- GP natural cycles at 07:25 and 07:30 CEST completed with exit code 0. The
+  continuously failing Meta API status watcher retained one active MEDIUM
+  incident with no pending event or new delivery; the system timer is active
+  and state v3 remains mode 0600.
 - Existing incidents migrated without `[NEW]` replay. Devbox delivered four
   preserved LOW incidents as one reminder digest. GP delivered the preserved
-  `dysk-sieciowy-sync` incident as a LOW reminder. Two distinct failed
-  `meta-api-status-watcher` invocation IDs generated separate MEDIUM events as
-  required by the durable-evidence policy.
+  `dysk-sieciowy-sync` incident as a LOW reminder.
 - Rollback snapshots are at
   `/home/miket/.local/state/system-monitor-rollbacks/20261004T215708+0200/devbox`
-  and root-only `/root/system-monitor-rollbacks/20261004T215708+0200/gp`.
+  and root-only `/root/system-monitor-rollbacks/20261004T215708+0200/gp` for
+  the original cutover. The notification-fix rollbacks are at
+  `/home/miket/.local/state/system-monitor-rollbacks/20261005T070919+0200/devbox`
+  and root-only `/root/system-monitor-rollbacks/20261005T070919+0200/gp`.
 
 ## Validation
 
-- PASS: 178 shared and imported unit tests, including transient/sample/durable
-  confirmation, recovery, reminders, LOW digest, DST, state migration and
-  partial Telegram failure retry.
-- PASS: JSON validation, `py_compile`, `systemd-analyze verify`, calendar
-  parsing, diff checks and secret scan.
+- PASS: 181 shared and imported unit tests: 23 common, 60 devbox legacy and 98
+  GP legacy. Coverage includes changing durable evidence IDs, confirmed
+  recovery and reopen, six-hour MEDIUM reminders, pending-event refresh,
+  distinct LOW display names, transient/sample/durable confirmation, LOW
+  digest, DST, state migration and partial Telegram failure retry.
+- PASS: host-context private-state shadow runs on devbox and GP; GP returned
+  all 313 configured results without queuing another Meta API event.
+- PASS: JSON validation, `py_compile`, per-host `systemd-analyze verify`, diff
+  checks, secret scan and source-runtime hashes. The devbox systemd check also
+  reported an unrelated legacy `/var/run` warning from the installed AnyDesk
+  unit; both monitor-unit checks exited 0.
+- BLOCKED (test invocation only): the first targeted unit command omitted
+  `PYTHONPATH=src` and could not import the local package. The corrected
+  command and all complete suites passed; this was not an application failure.
 - The first imported-suite run had two expected test failures because legacy
   assertions excluded Password Reset; the tests were updated to the approved
   new coverage and the complete rerun passed. This result is retained rather
