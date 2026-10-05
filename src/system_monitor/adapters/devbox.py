@@ -124,7 +124,8 @@ class Monitor:
             check["host"], "/usr/bin/env", "LC_ALL=C", "TZ=UTC",
             "/usr/bin/systemctl", "show", "gp-monitor.service",
             "--property=Result", "--property=ExecMainStatus",
-            "--property=ExecMainExitTimestamp", "--no-pager",
+            "--property=ExecMainExitTimestamp", "--property=ActiveState",
+            "--property=ExecMainStartTimestamp", "--no-pager",
         ]
         key = "remote-dead-man:gp-monitor"
         try:
@@ -132,12 +133,20 @@ class Monitor:
             values = self.parse_properties(result.stdout)
             completed = timestamp_epoch(values.get("ExecMainExitTimestamp", ""))
             age = self.now - completed if completed is not None else float("inf")
-            healthy = (
+            started = timestamp_epoch(values.get("ExecMainStartTimestamp", ""))
+            start_age = self.now - started if started is not None else float("inf")
+            completed_healthy = (
                 result.returncode == 0
                 and values.get("Result") == "success"
                 and values.get("ExecMainStatus") == "0"
                 and -60 <= age <= float(check["max_age_seconds"])
             )
+            running_healthy = (
+                result.returncode == 0
+                and values.get("ActiveState") in {"active", "activating"}
+                and -60 <= start_age <= float(check["max_age_seconds"])
+            )
+            healthy = completed_healthy or running_healthy
         except (OSError, subprocess.TimeoutExpired, ValueError, TypeError):
             healthy = False
         self.add(

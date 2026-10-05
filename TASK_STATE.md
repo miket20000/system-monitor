@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-05 15:22 CEST (Europe/Warsaw)
+Updated: 2026-10-05 15:46 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -79,7 +79,7 @@ scheduler-health signals.
   assertions excluded Password Reset; the tests were updated to the approved
   new coverage and the complete rerun passed. This result is retained rather
   than rewritten as an initial pass.
-- PASS: scheduler/dead-man additions bring the current total to 194 tests and
+- PASS: scheduler/dead-man additions bring the current total to 195 tests and
   38 subtests. Coverage includes local scheduler state, separate environment/
   health/freshness/idle signals, migration without replay, two-cycle recovery,
   six-hour reminders and three-cycle dead-man behavior.
@@ -88,11 +88,19 @@ scheduler-health signals.
   mounted read-only and legacy tests could not remove their temporary state
   file; 178 tests still passed. The identical host-context rerun passed all
   193 tests and 38 subtests. The final host-context suite after the UTC parser
-  correction passed all 194 tests and 38 subtests.
+  correction passed all 194 tests and 38 subtests. The synchronized-cycle
+  regression brought the final suite to 195 tests and 38 subtests, all passing.
 - The first devbox shadow during deployment reported a false dead-man CRITICAL
   because systemd's textual `UTC` timestamp was parsed as naive local time. The
-  parser now attaches UTC explicitly for `UTC`/`GMT`; the regression test,
-  repeated shadow and natural cycles are healthy.
+  parser now attaches UTC explicitly for `UTC`/`GMT`. Natural cycles then exposed
+  a second race: both five-minute timers start together, and systemd clears the
+  previous exit timestamp while GP is `activating`. A fresh active/activating
+  start is now accepted as dead-man evidence; both cases have regression tests.
+- The synchronized-cycle race produced one real false `[NEW]` dead-man event at
+  15:15 CEST before it was diagnosed. No incident was synthesized and production
+  state was not cleared. After deployment, natural 15:40 and 15:45 cycles were
+  OK and closed it with the normal `[RESOLVED]` path; the check is now severity
+  OK, `alert_active=false`, with no pending notification.
 - Natural GP monitor cycles observed the migrated schedulers. The existing
   Next Dev incident recovered after healthy confirmation through its preserved
   key, without `[NEW]` replay. All Online Compiler checks have

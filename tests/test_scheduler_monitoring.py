@@ -231,11 +231,24 @@ class DeadManTests(unittest.TestCase):
         monitor.check_gp_dead_man()
         self.assertEqual(monitor.results[-1].severity, "ok")
         self.assertEqual(monitor.results[-1].notification_class, "network")
-        self.assertEqual(calls[0][0][-11:], [
+        self.assertEqual(calls[0][0][-13:], [
             "gp", "/usr/bin/env", "LC_ALL=C", "TZ=UTC", "/usr/bin/systemctl",
             "show", "gp-monitor.service", "--property=Result",
-            "--property=ExecMainStatus", "--property=ExecMainExitTimestamp", "--no-pager",
+            "--property=ExecMainStatus", "--property=ExecMainExitTimestamp",
+            "--property=ActiveState", "--property=ExecMainStartTimestamp", "--no-pager",
         ])
+
+    def test_running_gp_cycle_is_fresh_dead_man_evidence(self):
+        monitor = self.monitor()
+        monitor.run_command = lambda command, timeout=15: completed(
+            command,
+            stdout=(
+                "Result=success\nExecMainStatus=0\nExecMainExitTimestamp=\n"
+                "ActiveState=activating\nExecMainStartTimestamp=@1799999998\n"
+            ),
+        )
+        monitor.check_gp_dead_man()
+        self.assertEqual(monitor.results[-1].severity, "ok")
 
     def test_systemd_utc_timestamp_is_not_reinterpreted_as_local_time(self):
         expected = datetime(2026, 10, 5, 12, 50, 17, tzinfo=timezone.utc).timestamp()
