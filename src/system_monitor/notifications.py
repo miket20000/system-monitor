@@ -24,6 +24,32 @@ STATUS_ORDER = ("NEW", "REMINDER", "RESOLVED")
 TYPE_WORDS = re.compile(
     r"\b(endpoint|service|timer|cron|heartbeat|filesystem|database)\b", re.I
 )
+MESSAGE_CONTEXT_FIELDS = {
+    "ONLINE_COMPILER_SCHEDULER_BLOCKED": {
+        "environmentStatus": {
+            "OPEN", "CLOSED", "STARTING", "STOPPING", "ACTIVE", "HIBERNATED",
+            "FAILED", "UNKNOWN",
+        },
+        "holdCount": "nonnegative_integer",
+    },
+    "ONLINE_COMPILER_SCHEDULER_DEGRADED": {
+        "environmentStatus": {
+            "OPEN", "CLOSED", "STARTING", "STOPPING", "ACTIVE", "HIBERNATED",
+            "FAILED", "UNKNOWN",
+        },
+        "reasonCode": {
+            "READ_UNAVAILABLE", "AUTH_OR_CYCLE_FAILED", "CYCLE_BLOCKED",
+            "CYCLE_UNKNOWN", "TIMER_INACTIVE", "HOLD_PRESENT", "CYCLE_OVERDUE",
+            "STATE_UNVERIFIED",
+        },
+    },
+    "ONLINE_COMPILER_STATE_STALE": {},
+    "ONLINE_COMPILER_IDLE_OVERDUE": {
+        "idleSeconds": "nonnegative_integer",
+        "idleThresholdSeconds": "nonnegative_integer",
+    },
+    "GP_MONITOR_DEAD_MAN": {},
+}
 
 
 @dataclass(frozen=True)
@@ -102,6 +128,7 @@ class PriorityRegistry:
             raise ValueError("Unsupported priorities schema_version")
         self.default_priority = int(payload.get("default_priority", 2))
         self.rules = payload.get("assignments", [])
+        self.message_codes = payload.get("message_codes", {})
         if self.default_priority not in PRIORITY_NAMES:
             raise ValueError("Invalid default priority")
         for rule in self.rules:
@@ -109,16 +136,51 @@ class PriorityRegistry:
                 raise ValueError("Invalid priority assignment")
             if not rule.get("patterns"):
                 raise ValueError("Priority assignment without patterns")
+        if set(self.message_codes) != set(MESSAGE_CONTEXT_FIELDS):
+            raise ValueError("Priority registry message code allowlist differs")
+        for code, message in self.message_codes.items():
+            if not isinstance(message, str) or not message.strip():
+                raise ValueError(f"Invalid priority message for {code}")
 
     @classmethod
     def load(cls, path: str | Path) -> "PriorityRegistry":
         return cls(json.loads(Path(path).read_text(encoding="utf-8")))
 
-    def display(self, key: str, summary: str) -> Display:
+    def _message(self, code: str, context: object) -> str:
+        if code not in MESSAGE_CONTEXT_FIELDS or not isinstance(context, dict):
+            raise ValueError("Unsupported notification message code")
+        expected = MESSAGE_CONTEXT_FIELDS[code]
+        if set(context) != set(expected):
+            raise ValueError("Notification message context differs")
+        clean_context: dict[str, str | int] = {}
+        for field, validator in expected.items():
+            value = context[field]
+            if validator == "nonnegative_integer":
+                if type(value) is not int or value < 0 or value > 10_000_000:
+                    raise ValueError("Invalid notification integer context")
+            elif value not in validator:
+                raise ValueError("Invalid notification enum context")
+            clean_context[field] = value
+        try:
+            return _clean(self.message_codes[code].format_map(clean_context))
+        except (KeyError, ValueError) as error:
+            raise ValueError("Invalid priority message template") from error
+
+    def display(
+        self,
+        key: str,
+        summary: str,
+        message_code: str = "",
+        message_context: object = None,
+    ) -> Display:
         for rule in self.rules:
             if any(fnmatch.fnmatchcase(key, pattern) for pattern in rule["patterns"]):
                 name = _clean(rule.get("name") or _key_subject(key))
-                problem = _clean(rule.get("problem") or _problem(summary))
+                problem = (
+                    self._message(message_code, message_context or {})
+                    if message_code
+                    else _clean(rule.get("problem") or _problem(summary))
+                )
                 resolved = _clean(rule.get("resolved") or _problem(summary, True))
                 return Display(int(rule["priority"]), name, problem, resolved)
         return Display(
@@ -252,7 +314,12 @@ class NotificationEngine:
             key = str(result.key)
             current_keys.add(key)
             previous = checks.get(key, {})
-            display = self.registry.display(key, str(result.summary))
+            display = self.registry.display(
+                key,
+                str(result.summary),
+                str(getattr(result, "notification_code", "") or ""),
+                getattr(result, "notification_context", None),
+            )
             previous_severity = previous.get("severity", "ok")
             last_notification = float(previous.get("last_notification", 0) or 0)
             alert_active = bool(

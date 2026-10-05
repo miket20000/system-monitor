@@ -24,8 +24,18 @@ remain at their established locations:
 
 The entrypoints are compatibility wrappers. Shared package code is installed
 under `~/.local/lib/system-monitor` on devbox and
-`/usr/local/lib/system-monitor` on GP. The Online Compiler heartbeat receiver
-also keeps its established `/usr/local/lib/gp-monitor/` entrypoint.
+`/usr/local/lib/system-monitor` on GP. The legacy Online Compiler heartbeat
+receiver keeps its established `/usr/local/lib/gp-monitor/` entrypoint for
+rollback compatibility, but the active GP profile reads the local system
+scheduler units and owner-only state under
+`/var/lib/online-compiler-scheduler/`. Scheduler health, environment state,
+state freshness and Next Dev idle expiry are reported independently. The
+established external-heartbeat incident keys remain unchanged so an existing
+incident is not replayed as `[NEW]` during migration.
+
+The devbox profile has one bounded read-only dead-man probe for GP. It executes
+a fixed SSH `systemctl show gp-monitor.service` command and is classified as a
+network observation, so a new alert requires three consecutive failed cycles.
 
 Before a rollout, copy the profile, unit, environment file, installed code and
 state into a private timestamped rollback directory. Run a shadow cycle with

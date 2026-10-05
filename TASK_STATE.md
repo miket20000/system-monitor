@@ -2,14 +2,29 @@
 
 ## Goal
 
-Consolidate the devbox and GP monitors into this repository while preserving
-two independent runtime instances, their local probes, permissions, state and
-failure domains.
+Make `system-monitor` the sole owner of Online Compiler alerts, reminders and
+recovery while the schedulers move from devbox to GP. Preserve the two monitor
+runtimes, existing incident identities and independent availability and
+scheduler-health signals.
 
 ## Current implementation
 
 - The repository contains the imported GP and devbox probe adapters, the
   shared notification engine, common priority routing and source profiles.
+- GP profile code now reads the local PROD and Next Dev system units and state
+  files. It reports environment status, scheduler health/reason and cycle
+  freshness independently; ACTIVE past the configured idle limit has a
+  separate incident key.
+- Existing Online Compiler incident keys remain unchanged, so deployment over
+  current state will not replay `[NEW]`. New keys are limited to stale state
+  and idle-overdue conditions. Allowlisted message codes and context fields
+  distinguish stale state, fresh BLOCKED/HOLD with last environment state,
+  read degradation and idle-overdue without exposing raw payloads.
+- Scheduler health remains MEDIUM with the six-hour reminder. Public
+  availability remains an independent HIGH signal.
+- The devbox profile has a fixed, read-only GP dead-man probe over SSH. Its
+  network classification requires three consecutive failed cycles. This alert
+  is emitted by `system-monitor`, never by Online Compiler.
 - Telegram routing uses the private `sysmon-high`, `sysmon-medium` and
   `sysmon-low` groups. Each contains the owner and `mt_monitoring_agent`; the
   exact configuration message was verified in all three groups. Chat IDs and
@@ -58,6 +73,19 @@ failure domains.
   assertions excluded Password Reset; the tests were updated to the approved
   new coverage and the complete rerun passed. This result is retained rather
   than rewritten as an initial pass.
+- PASS: scheduler/dead-man additions bring the current total to 193 tests:
+  23 notification tests, 12 scheduler/dead-man tests, 60 devbox legacy tests
+  and 98 GP legacy tests. `py_compile`, all three JSON files, diff checks and
+  the secret scan also pass.
+- Retained final validation evidence: the first all-suite rerun inside the
+  restricted sandbox had 15 test-harness failures because the repository was
+  mounted read-only and legacy tests could not remove their temporary state
+  file; 178 tests still passed. The identical host-context rerun passed all
+  193 tests and 38 subtests.
+- The new monitor code has not been deployed. The Online Compiler GP cutover is
+  blocked before its first cycle because the scheduler identities lack
+  authority to create the required WIF providers. GP scheduler timers remain
+  disabled/inactive and devbox remains the only scheduler writer.
 
 ## Constraints
 
@@ -71,9 +99,16 @@ failure domains.
 ## START HERE
 
 1. Read this file and check all three repository worktrees before editing.
-2. For a monitor change, run the shared and both imported regression suites,
-   then a private `--no-notify --state-file` shadow cycle for the target host.
-3. Preserve installed entrypoints, state paths, environment permissions and
-   the three-channel message contract during future deployments.
-4. Investigate application incidents in their owning repositories; do not
-   clear monitor state or manufacture recovery observations.
+2. Wait for Online Compiler GP WIF/auth validation and the scheduler
+   single-writer cutover gate. Do not deploy local GP scheduler checks against
+   an incomplete runtime or replace the production monitor state.
+3. Before deployment, create private runtime/config/state backups, verify the
+   existing incident keys in state, and run GP shadow validation with
+   `--no-notify --state-file` on a private copy/path.
+4. Deploy GP-local checks first while preserving the production state, then
+   deploy the devbox three-cycle dead-man probe. Verify source/runtime hashes,
+   unit configuration and two natural monitor cycles without generating a
+   synthetic failure or notification.
+5. Preserve installed entrypoints, state paths, environment permissions and
+   the three-channel message contract. Investigate application incidents in
+   their owning repository and never clear monitor state to force recovery.

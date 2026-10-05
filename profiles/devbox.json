@@ -33,6 +33,11 @@
       "repeat_same_incident": true
     }
   },
+  "gp_dead_man": {
+    "host": "gp",
+    "ssh_config": "/home/miket/.ssh/config",
+    "max_age_seconds": 900
+  },
   "system_units": [
     {"unit": "ssh.service"},
     {"unit": "NetworkManager.service"},

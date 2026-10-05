@@ -1,6 +1,13 @@
 {
   "schema_version": 1,
   "default_priority": 2,
+  "message_codes": {
+    "ONLINE_COMPILER_SCHEDULER_BLOCKED": "scheduler zablokowany; HOLD={holdCount}; ostatni stan środowiska: {environmentStatus}",
+    "ONLINE_COMPILER_SCHEDULER_DEGRADED": "scheduler ma stan {reasonCode}; ostatni stan środowiska: {environmentStatus}",
+    "ONLINE_COMPILER_STATE_STALE": "brak świeżego stanu schedulera",
+    "ONLINE_COMPILER_IDLE_OVERDUE": "środowisko ACTIVE przez {idleSeconds}s przy limicie {idleThresholdSeconds}s",
+    "GP_MONITOR_DEAD_MAN": "brak świeżego potwierdzenia pracy monitora GP"
+  },
   "assignments": [
     {
       "patterns": ["*password-reset*"],
@@ -159,6 +166,20 @@
       "name": "Trustpilot Notifier",
       "problem": "połączenie nie działa prawidłowo",
       "resolved": "połączenie ponownie działa prawidłowo"
+    },
+    {
+      "patterns": ["external-heartbeat:online-compiler-*", "online-compiler-environment:*", "online-compiler-scheduler:*"],
+      "priority": 2,
+      "name": "Scheduler Online Compiler",
+      "problem": "scheduler nie działa prawidłowo",
+      "resolved": "scheduler ponownie działa prawidłowo"
+    },
+    {
+      "patterns": ["remote-dead-man:gp-monitor"],
+      "priority": 2,
+      "name": "Monitor GP",
+      "problem": "brak świeżego potwierdzenia pracy",
+      "resolved": "monitor ponownie potwierdził pracę"
     },
     {
       "patterns": ["external-heartbeat:*", "route:*", "vpn:*", "filesystem:*", "memory:*", "load:*", "mount:*", "database:*", "dns:*", "tls:*"],

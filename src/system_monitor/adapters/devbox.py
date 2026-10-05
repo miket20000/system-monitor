@@ -38,6 +38,9 @@ class Result:
     summary: str
     details: str = ""
     incident_id: str = ""
+    notification_class: str = "sampled"
+    notification_code: str = ""
+    notification_context: dict[str, Any] | None = None
 
 
 @dataclass
@@ -100,8 +103,49 @@ class Monitor:
         summary: str,
         details: str = "",
         incident_id: str = "",
+        notification_class: str = "sampled",
+        notification_code: str = "",
+        notification_context: dict[str, Any] | None = None,
     ) -> None:
-        self.results.append(Result(key, severity, summary, details, incident_id))
+        self.results.append(
+            Result(
+                key, severity, summary, details, incident_id, notification_class,
+                notification_code, notification_context,
+            )
+        )
+
+    def check_gp_dead_man(self) -> None:
+        check = self.config.get("gp_dead_man")
+        if not check:
+            return
+        command = [
+            "/usr/bin/ssh", "-F", check["ssh_config"], "-o", "BatchMode=yes",
+            "-o", "ClearAllForwardings=yes", "-o", "ConnectTimeout=10", "-T",
+            check["host"], "/usr/bin/env", "LC_ALL=C", "TZ=UTC",
+            "/usr/bin/systemctl", "show", "gp-monitor.service",
+            "--property=Result", "--property=ExecMainStatus",
+            "--property=ExecMainExitTimestamp", "--no-pager",
+        ]
+        key = "remote-dead-man:gp-monitor"
+        try:
+            result = self.run_command(command, timeout=15)
+            values = self.parse_properties(result.stdout)
+            completed = timestamp_epoch(values.get("ExecMainExitTimestamp", ""))
+            age = self.now - completed if completed is not None else float("inf")
+            healthy = (
+                result.returncode == 0
+                and values.get("Result") == "success"
+                and values.get("ExecMainStatus") == "0"
+                and -60 <= age <= float(check["max_age_seconds"])
+            )
+        except (OSError, subprocess.TimeoutExpired, ValueError, TypeError):
+            healthy = False
+        self.add(
+            key, "ok" if healthy else "critical",
+            "GP monitor completed recently" if healthy else "GP monitor has no recent successful cycle",
+            notification_class="network",
+            notification_code="GP_MONITOR_DEAD_MAN" if not healthy else "",
+        )
 
     def check_filesystems(self) -> None:
         mounts: list[str] = []
@@ -963,6 +1007,7 @@ class Monitor:
         self.check_system_timers()
         self.check_daily_successes()
         self.check_http()
+        self.check_gp_dead_man()
 
 
 def threshold_severity(value: float, warning: float, critical: float) -> str:

@@ -77,55 +77,50 @@ class ConfigCoverageTests(unittest.TestCase):
         self.assertNotIn("http_warning_consecutive_failures", config["thresholds"])
         self.assertNotIn("http_critical_consecutive_failures", config["thresholds"])
 
-    def test_online_compiler_production_schedule_heartbeat_is_monitored(self) -> None:
+    def test_online_compiler_production_scheduler_is_monitored_locally(self) -> None:
         config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
         checks = {
-            item["name"]: item for item in config["external_json_heartbeats"]
+            item["name"]: item for item in config["online_compiler_schedulers"]
         }
 
         self.assertEqual(
-            checks["online-compiler-production-schedule"],
+            checks["production"],
             {
-                "name": "online-compiler-production-schedule",
-                "path": "/var/lib/gp-monitor/external/online-compiler-production-schedule.json",
-                "warning_seconds": 1200,
-                "critical_seconds": 2100,
-                "allowed_statuses": ["OPEN", "CLOSED"],
-                "expected_json": {
-                    "schemaVersion": 1,
-                    "check": "online-compiler-production-schedule",
-                    "sourceHost": "devbox",
-                    "timerActive": True,
-                    "timerEnabled": True,
-                    "holdCount": 0,
-                    "lastCycleResult": "SUCCESS",
-                    "schedulerHealthy": True,
-                },
+                "name": "production",
+                "incident_key": "external-heartbeat:online-compiler-production-schedule",
+                "timer_unit": "online-compiler-production-schedule.timer",
+                "service_unit": "online-compiler-production-schedule.service",
+                "schedule_path": "/var/lib/online-compiler-scheduler/production/schedule.json",
+                "health_path": "/var/lib/online-compiler-scheduler/production/scheduler-health.json",
+                "holds_path": "/var/lib/online-compiler-scheduler/production/holds",
+                "freshness_warning_seconds": 180,
+                "freshness_critical_seconds": 300,
             },
         )
 
-    def test_online_compiler_next_dev_hibernation_is_monitored(self) -> None:
+    def test_online_compiler_next_dev_scheduler_is_monitored_locally(self) -> None:
         config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
         checks = {
-            item["name"]: item for item in config["external_json_heartbeats"]
+            item["name"]: item for item in config["online_compiler_schedulers"]
         }
 
         self.assertEqual(
-            checks["online-compiler-next-dev-hibernation"],
+            checks["next-dev"],
             {
-                "name": "online-compiler-next-dev-hibernation",
-                "path": "/var/lib/gp-monitor/external/online-compiler-next-dev-hibernation.json",
-                "warning_seconds": 1200,
-                "critical_seconds": 2100,
-                "allowed_statuses": ["ACTIVE", "HIBERNATED", "FAILED"],
-                "semantic_policy": "online-compiler-next-dev-hibernation-v1",
-                "overdue_grace_seconds": 900,
-                "expected_json": {
-                    "schemaVersion": 1,
-                    "check": "online-compiler-next-dev-hibernation",
-                    "sourceHost": "devbox",
-                    "idleThresholdSeconds": 3600,
-                },
+                "name": "next-dev",
+                "incident_key": "external-heartbeat:online-compiler-next-dev-hibernation",
+                "timer_unit": "online-compiler-next-dev-idle.timer",
+                "service_unit": "online-compiler-next-dev-idle.service",
+                "schedule_path": "/var/lib/online-compiler-scheduler/next-dev/schedule.json",
+                "health_path": "/var/lib/online-compiler-scheduler/next-dev/scheduler-health.json",
+                "power_state_path": "/var/lib/online-compiler-scheduler/next-dev/state.json",
+                "activities_path": "/var/lib/online-compiler-scheduler/next-dev/activities",
+                "leases_path": "/var/lib/online-compiler-scheduler/next-dev/leases",
+                "holds_path": "/var/lib/online-compiler-scheduler/next-dev/holds",
+                "freshness_warning_seconds": 1200,
+                "freshness_critical_seconds": 2100,
+                "idle_threshold_seconds": 3600,
+                "idle_grace_seconds": 900,
             },
         )
 

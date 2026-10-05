@@ -282,6 +282,8 @@ class Result:
     details: str = ""
     incident_id: str = ""
     notification_class: str = "sampled"
+    notification_code: str = ""
+    notification_context: dict[str, Any] | None = None
 
 
 class Monitor:
@@ -341,14 +343,211 @@ class Monitor:
         details: str = "",
         incident_id: str = "",
         notification_class: str = "sampled",
+        notification_code: str = "",
+        notification_context: dict[str, Any] | None = None,
     ) -> None:
         if severity not in SEVERITY_ORDER:
             raise ValueError(f"Unsupported severity: {severity}")
         if notification_class not in NOTIFICATION_CLASSES:
             raise ValueError(f"Unsupported notification class: {notification_class}")
         self.results.append(
-            Result(key, severity, summary, details, incident_id, notification_class)
+            Result(
+                key, severity, summary, details, incident_id, notification_class,
+                notification_code, notification_context,
+            )
         )
+
+    def _scheduler_unit_state(self, timer: str, service: str) -> tuple[bool, str]:
+        active = self.run_command(["systemctl", "is-active", timer])
+        enabled = self.run_command(["systemctl", "is-enabled", timer])
+        properties = self.run_command(
+            [
+                "systemctl", "show", service, "--property=ActiveState",
+                "--property=Result", "--property=ExecMainStatus",
+            ]
+        )
+        values = self.parse_properties(properties.stdout)
+        healthy = (
+            active.returncode == 0
+            and active.stdout.strip() == "active"
+            and enabled.returncode == 0
+            and enabled.stdout.strip() == "enabled"
+            and properties.returncode == 0
+            and values.get("ActiveState") in {"active", "activating", "deactivating", "inactive"}
+            and values.get("Result") == "success"
+            and values.get("ExecMainStatus") == "0"
+        )
+        if active.stdout.strip() != "active" or enabled.stdout.strip() != "enabled":
+            return healthy, "TIMER_INACTIVE"
+        if values.get("ExecMainStatus") == "20":
+            return False, "CYCLE_BLOCKED"
+        if not healthy:
+            return False, "AUTH_OR_CYCLE_FAILED"
+        return True, "NONE"
+
+    @staticmethod
+    def _scheduler_json(path: Path) -> dict[str, Any]:
+        value = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(value, dict):
+            raise ValueError("scheduler state is not an object")
+        return value
+
+    @staticmethod
+    def _scheduler_records(path: Path) -> int:
+        if path.is_symlink() or not path.is_dir():
+            raise ValueError("scheduler record directory differs")
+        count = 0
+        for child in path.iterdir():
+            if child.is_symlink() or not child.is_file() or child.suffix != ".json":
+                raise ValueError("scheduler record differs")
+            count += 1
+        return count
+
+    def check_online_compiler_schedulers(self) -> None:
+        """Inspect GP-local scheduler units and owner-only state independently."""
+        allowed_reasons = {
+            "NONE", "READ_UNAVAILABLE", "AUTH_OR_CYCLE_FAILED", "CYCLE_BLOCKED",
+            "CYCLE_UNKNOWN", "TIMER_INACTIVE", "HOLD_PRESENT", "CYCLE_OVERDUE",
+            "STATE_UNVERIFIED",
+        }
+        for check in self.config.get("online_compiler_schedulers", []):
+            name = check["name"]
+            legacy_key = check["incident_key"]
+            environment_key = f"online-compiler-environment:{name}"
+            freshness_key = f"online-compiler-scheduler:{name}:freshness"
+            try:
+                schedule = self._scheduler_json(Path(check["schedule_path"]))
+                health = self._scheduler_json(Path(check["health_path"]))
+                holds = self._scheduler_records(Path(check["holds_path"]))
+                health_time = timestamp_epoch(str(health.get("updatedAt", "")))
+                if (
+                    health.get("schemaVersion") != 1
+                    or health.get("status") not in {"HEALTHY", "DEGRADED"}
+                    or health.get("reasonCode") not in allowed_reasons
+                    or (health["status"] == "HEALTHY") != (health["reasonCode"] == "NONE")
+                    or health_time is None
+                ):
+                    raise ValueError("scheduler health schema differs")
+                schedule_status = schedule.get("status")
+                if name == "production":
+                    if schedule_status not in {"OPEN", "CLOSED", "STARTING", "STOPPING", "FAILED"}:
+                        raise ValueError("production environment status differs")
+                    environment_status = str(schedule_status)
+                elif name == "next-dev":
+                    power = self._scheduler_json(Path(check["power_state_path"]))
+                    activities = self._scheduler_records(Path(check["activities_path"]))
+                    leases = self._scheduler_records(Path(check["leases_path"]))
+                    power_mode = power.get("mode")
+                    last_activity = timestamp_epoch(str(power.get("lastActivityAt", "")))
+                    if schedule_status not in {"OPEN", "CLOSED", "STARTING", "STOPPING", "FAILED"}:
+                        raise ValueError("next-dev schedule status differs")
+                    if power_mode not in {
+                        "UNKNOWN", "ACTIVE", "RESUMING", "HIBERNATING", "HIBERNATED", "FAILED",
+                    }:
+                        raise ValueError("next-dev power mode differs")
+                    if last_activity is None or last_activity > self.now + 60:
+                        raise ValueError("next-dev last activity timestamp differs")
+                    environment_status = (
+                        "ACTIVE" if (schedule_status, power_mode) == ("OPEN", "ACTIVE")
+                        else "HIBERNATED" if (schedule_status, power_mode) == ("CLOSED", "HIBERNATED")
+                        else "STARTING" if (schedule_status, power_mode) == ("STARTING", "RESUMING")
+                        else "STOPPING" if (schedule_status, power_mode) == ("STOPPING", "HIBERNATING")
+                        else "FAILED"
+                    )
+                else:
+                    raise ValueError("unknown scheduler profile")
+            except (FileNotFoundError, OSError, UnicodeError, json.JSONDecodeError, ValueError) as error:
+                self.add(
+                    freshness_key, "critical", "Online Compiler scheduler state is unavailable",
+                    type(error).__name__, notification_class="durable",
+                    notification_code="ONLINE_COMPILER_STATE_STALE",
+                )
+                self.add(
+                    legacy_key, "critical", "Online Compiler scheduler state cannot be verified",
+                    type(error).__name__, notification_class="durable",
+                    notification_code="ONLINE_COMPILER_SCHEDULER_DEGRADED",
+                    notification_context={
+                        "environmentStatus": "UNKNOWN", "reasonCode": "STATE_UNVERIFIED",
+                    },
+                )
+                self.add(
+                    environment_key, "critical", "Online Compiler environment state cannot be verified",
+                    type(error).__name__, notification_class="durable",
+                )
+                if name == "next-dev":
+                    self.add(
+                        f"online-compiler-scheduler:{name}:idle-overdue", "ok",
+                        "Next Dev idle deadline cannot be evaluated while state is unavailable",
+                        notification_class="durable",
+                    )
+                continue
+
+            age = self.now - health_time
+            freshness = (
+                "critical" if age < -60
+                else threshold_severity(
+                    max(0, age), float(check["freshness_warning_seconds"]),
+                    float(check["freshness_critical_seconds"]),
+                )
+            )
+            self.add(
+                freshness_key, freshness,
+                "Online Compiler scheduler state is fresh" if freshness == "ok" else "Online Compiler scheduler state is stale",
+                notification_class="durable",
+                notification_code="ONLINE_COMPILER_STATE_STALE" if freshness != "ok" else "",
+            )
+
+            environment_healthy = environment_status not in {"FAILED", "UNKNOWN"}
+            self.add(
+                environment_key, "ok" if environment_healthy else "critical",
+                f"Online Compiler environment status is {environment_status}",
+                notification_class="durable",
+            )
+
+            try:
+                unit_healthy, unit_reason = self._scheduler_unit_state(
+                    check["timer_unit"], check["service_unit"]
+                )
+            except (OSError, subprocess.TimeoutExpired, ValueError, TypeError):
+                unit_healthy, unit_reason = False, "STATE_UNVERIFIED"
+            blocked = holds > 0 or unit_reason == "CYCLE_BLOCKED" or health.get("reasonCode") in {
+                "CYCLE_BLOCKED", "HOLD_PRESENT",
+            }
+            scheduler_healthy = unit_healthy and health["status"] == "HEALTHY" and not blocked
+            if blocked:
+                code = "ONLINE_COMPILER_SCHEDULER_BLOCKED"
+                context = {"environmentStatus": environment_status, "holdCount": holds}
+            elif not scheduler_healthy:
+                code = "ONLINE_COMPILER_SCHEDULER_DEGRADED"
+                reason = unit_reason if not unit_healthy else str(health["reasonCode"])
+                context = {"environmentStatus": environment_status, "reasonCode": reason}
+            else:
+                code, context = "", None
+            self.add(
+                legacy_key, "ok" if scheduler_healthy else "critical",
+                "Online Compiler scheduler is healthy" if scheduler_healthy else "Online Compiler scheduler is degraded",
+                notification_class="durable", notification_code=code,
+                notification_context=context,
+            )
+
+            if name == "next-dev":
+                idle_seconds = max(0, int(self.now - last_activity))
+                idle_overdue = (
+                    environment_status == "ACTIVE"
+                    and holds + activities + leases == 0
+                    and idle_seconds >= int(check["idle_threshold_seconds"]) + int(check["idle_grace_seconds"])
+                )
+                self.add(
+                    f"online-compiler-scheduler:{name}:idle-overdue",
+                    "critical" if idle_overdue else "ok",
+                    "Next Dev is ACTIVE beyond its idle deadline" if idle_overdue else "Next Dev idle deadline is satisfied",
+                    notification_class="durable",
+                    notification_code="ONLINE_COMPILER_IDLE_OVERDUE" if idle_overdue else "",
+                    notification_context={
+                        "idleSeconds": idle_seconds,
+                        "idleThresholdSeconds": int(check["idle_threshold_seconds"]),
+                    } if idle_overdue else None,
+                )
 
     def check_filesystems(self) -> None:
         mounts: list[str] = []
@@ -1608,6 +1807,7 @@ class Monitor:
         self.check_routes()
         self.check_system_timers()
         self.check_journal_errors()
+        self.check_online_compiler_schedulers()
         self.check_external_json_heartbeats()
         self.check_http()
         self.check_online_compiler_availability()
