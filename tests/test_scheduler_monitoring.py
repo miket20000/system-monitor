@@ -53,8 +53,10 @@ class LocalSchedulerTests(unittest.TestCase):
             "schedule_path": str(state / "schedule.json"),
             "health_path": str(state / "scheduler-health.json"),
             "holds_path": str(state / "holds"),
-            "freshness_warning_seconds": 180 if name == "production" else 1200,
-            "freshness_critical_seconds": 300 if name == "production" else 2100,
+            "freshness_warning_seconds": 600 if name == "production" else 1200,
+            "freshness_critical_seconds": 900 if name == "production" else 2100,
+            "cycle_warning_seconds": 300,
+            "cycle_overdue_seconds": 1860,
         }
         self.write_json(
             state / "schedule.json",
@@ -99,7 +101,10 @@ class LocalSchedulerTests(unittest.TestCase):
             return completed(command, stdout="enabled\n")
         return completed(
             command,
-            stdout="ActiveState=inactive\nResult=success\nExecMainStatus=0\n",
+            stdout=(
+                "ActiveState=inactive\nResult=success\nExecMainStatus=0\n"
+                "ExecMainStartTimestamp=\n"
+            ),
         )
 
     def monitor(self, check: dict) -> gp.Monitor:
@@ -129,7 +134,7 @@ class LocalSchedulerTests(unittest.TestCase):
         check = self.base_check("production")
         health = Path(check["health_path"])
         value = json.loads(health.read_text(encoding="utf-8"))
-        value["updatedAt"] = "2026-10-05T09:50:00Z"
+        value["updatedAt"] = "2026-10-05T09:44:00Z"
         self.write_json(health, value)
         monitor = self.monitor(check)
         monitor.check_online_compiler_schedulers()
@@ -141,6 +146,198 @@ class LocalSchedulerTests(unittest.TestCase):
             results["external-heartbeat:online-compiler-production-schedule"].severity,
             "ok",
         )
+
+    def test_production_five_minute_cadence_thresholds(self):
+        expected = {
+            599: "ok",
+            600: "warning",
+            899: "warning",
+            900: "critical",
+        }
+        for age, severity in expected.items():
+            with self.subTest(age=age):
+                check = self.base_check("production")
+                health = Path(check["health_path"])
+                value = json.loads(health.read_text(encoding="utf-8"))
+                value["updatedAt"] = datetime.fromtimestamp(
+                    self.now - age, timezone.utc
+                ).isoformat().replace("+00:00", "Z")
+                self.write_json(health, value)
+                monitor = self.monitor(check)
+                monitor.check_online_compiler_schedulers()
+                result = next(
+                    item for item in monitor.results
+                    if item.key == "online-compiler-scheduler:production:freshness"
+                )
+                self.assertEqual(result.severity, severity)
+
+    def test_running_cycle_is_fresh_in_progress_evidence(self):
+        check = self.base_check("production")
+        health = Path(check["health_path"])
+        value = json.loads(health.read_text(encoding="utf-8"))
+        value["updatedAt"] = "2026-10-05T09:00:00Z"
+        self.write_json(health, value)
+        monitor = self.monitor(check)
+
+        def running_systemd(command, timeout=15):
+            if "is-active" in command:
+                return completed(command, stdout="active\n")
+            if "is-enabled" in command:
+                return completed(command, stdout="enabled\n")
+            return completed(
+                command,
+                stdout=(
+                    "ActiveState=activating\nResult=success\nExecMainStatus=0\n"
+                    "ExecMainStartTimestamp=2026-10-05T09:55:00+00:00\n"
+                ),
+            )
+
+        monitor.run_command = running_systemd
+        monitor.check_online_compiler_schedulers()
+        results = {result.key: result for result in monitor.results}
+        freshness = results["online-compiler-scheduler:production:freshness"]
+        self.assertEqual(freshness.severity, "ok")
+        self.assertEqual(freshness.details, "IN_PROGRESS")
+        self.assertIn("in progress", freshness.summary)
+        self.assertEqual(
+            results["external-heartbeat:online-compiler-production-schedule"].severity,
+            "ok",
+        )
+
+    def test_running_cycle_warning_and_overdue_boundaries(self):
+        expected = {
+            300: ("ok", "IN_PROGRESS", "ok"),
+            301: ("warning", "CYCLE_SLOW", "ok"),
+            1860: ("warning", "CYCLE_SLOW", "ok"),
+            1861: ("critical", "CYCLE_OVERDUE", "critical"),
+        }
+        for age, (freshness_severity, cycle_state, scheduler_severity) in expected.items():
+            with self.subTest(age=age):
+                check = self.base_check("production")
+                monitor = self.monitor(check)
+                started = datetime.fromtimestamp(
+                    self.now - age, timezone.utc
+                ).isoformat().replace("+00:00", "Z")
+
+                def running_systemd(command, timeout=15):
+                    if "is-active" in command:
+                        return completed(command, stdout="active\n")
+                    if "is-enabled" in command:
+                        return completed(command, stdout="enabled\n")
+                    return completed(
+                        command,
+                        stdout=(
+                            "ActiveState=activating\nResult=success\nExecMainStatus=0\n"
+                            f"ExecMainStartTimestamp={started}\n"
+                        ),
+                    )
+
+                monitor.run_command = running_systemd
+                monitor.check_online_compiler_schedulers()
+                results = {result.key: result for result in monitor.results}
+                freshness = results["online-compiler-scheduler:production:freshness"]
+                scheduler = results["external-heartbeat:online-compiler-production-schedule"]
+                self.assertEqual(freshness.severity, freshness_severity)
+                self.assertEqual(freshness.details, cycle_state)
+                self.assertEqual(scheduler.severity, scheduler_severity)
+
+    def test_slow_cycle_uses_existing_freshness_key_and_safe_message(self):
+        check = self.base_check("production")
+        monitor = self.monitor(check)
+
+        def slow_systemd(command, timeout=15):
+            if "is-active" in command:
+                return completed(command, stdout="active\n")
+            if "is-enabled" in command:
+                return completed(command, stdout="enabled\n")
+            return completed(
+                command,
+                stdout=(
+                    "ActiveState=activating\nResult=success\nExecMainStatus=0\n"
+                    "ExecMainStartTimestamp=2026-10-05T09:54:59+00:00\n"
+                ),
+            )
+
+        monitor.run_command = slow_systemd
+        monitor.check_online_compiler_schedulers()
+        results = {result.key: result for result in monitor.results}
+        freshness = results["online-compiler-scheduler:production:freshness"]
+        scheduler = results["external-heartbeat:online-compiler-production-schedule"]
+        self.assertEqual(freshness.severity, "warning")
+        self.assertEqual(freshness.notification_code, "ONLINE_COMPILER_CYCLE_SLOW")
+        self.assertEqual(scheduler.severity, "ok")
+        display = PriorityRegistry.load(ROOT / "config/priorities.json").display(
+            freshness.key, freshness.summary, freshness.notification_code, {}
+        )
+        self.assertEqual(display.problem, "cykl schedulera trwa dłużej niż oczekiwano")
+
+    def test_running_cycle_past_deadline_is_overdue_not_merely_stale(self):
+        check = self.base_check("production")
+        monitor = self.monitor(check)
+
+        def overdue_systemd(command, timeout=15):
+            if "is-active" in command:
+                return completed(command, stdout="active\n")
+            if "is-enabled" in command:
+                return completed(command, stdout="enabled\n")
+            return completed(
+                command,
+                stdout=(
+                    "ActiveState=activating\nResult=success\nExecMainStatus=0\n"
+                    "ExecMainStartTimestamp=2026-10-05T09:28:59+00:00\n"
+                ),
+            )
+
+        monitor.run_command = overdue_systemd
+        monitor.check_online_compiler_schedulers()
+        results = {result.key: result for result in monitor.results}
+        freshness = results["online-compiler-scheduler:production:freshness"]
+        scheduler = results["external-heartbeat:online-compiler-production-schedule"]
+        self.assertEqual(freshness.severity, "critical")
+        self.assertEqual(freshness.details, "CYCLE_OVERDUE")
+        self.assertEqual(
+            freshness.notification_code, "ONLINE_COMPILER_CYCLE_OVERDUE"
+        )
+        self.assertIn("overdue", freshness.summary)
+        self.assertEqual(scheduler.severity, "critical")
+        self.assertEqual(scheduler.notification_context["reasonCode"], "CYCLE_OVERDUE")
+
+    def test_running_cycle_does_not_hide_degraded_scheduler_health(self):
+        check = self.base_check("production")
+        self.write_json(
+            Path(check["health_path"]),
+            {
+                "schemaVersion": 1,
+                "status": "DEGRADED",
+                "reasonCode": "READ_UNAVAILABLE",
+                "updatedAt": "2026-10-05T09:00:00Z",
+            },
+        )
+        monitor = self.monitor(check)
+
+        def running_systemd(command, timeout=15):
+            if "is-active" in command:
+                return completed(command, stdout="active\n")
+            if "is-enabled" in command:
+                return completed(command, stdout="enabled\n")
+            return completed(
+                command,
+                stdout=(
+                    "ActiveState=activating\nResult=success\nExecMainStatus=0\n"
+                    "ExecMainStartTimestamp=2026-10-05T09:55:00+00:00\n"
+                ),
+            )
+
+        monitor.run_command = running_systemd
+        monitor.check_online_compiler_schedulers()
+        results = {result.key: result for result in monitor.results}
+        self.assertEqual(
+            results["online-compiler-scheduler:production:freshness"].severity,
+            "ok",
+        )
+        scheduler = results["external-heartbeat:online-compiler-production-schedule"]
+        self.assertEqual(scheduler.severity, "critical")
+        self.assertEqual(scheduler.notification_context["reasonCode"], "READ_UNAVAILABLE")
 
     def test_next_dev_blocked_preserves_legacy_key_and_safe_context(self):
         check = self.base_check("next-dev")
@@ -299,6 +496,16 @@ class SchedulerNotificationTests(unittest.TestCase):
                 "key", "summary", "ONLINE_COMPILER_SCHEDULER_BLOCKED",
                 {"environmentStatus": "provider response", "holdCount": 1},
             )
+
+    def test_cycle_overdue_has_a_distinct_safe_message(self):
+        display = PriorityRegistry.load(ROOT / "config/priorities.json").display(
+            "online-compiler-scheduler:production:freshness",
+            "ignored",
+            "ONLINE_COMPILER_CYCLE_OVERDUE",
+            {},
+        )
+        self.assertEqual(display.priority, 2)
+        self.assertEqual(display.problem, "cykl schedulera przekroczył limit czasu")
 
     def test_existing_active_incident_does_not_replay_new(self):
         registry = PriorityRegistry.load(ROOT / "config/priorities.json")

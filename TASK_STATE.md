@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-05 15:46 CEST (Europe/Warsaw)
+Updated: 2026-10-06 07:37 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -16,7 +16,10 @@ scheduler-health signals.
 - GP profile code now reads the local PROD and Next Dev system units and state
   files. It reports environment status, scheduler health/reason and cycle
   freshness independently; ACTIVE past the configured idle limit has a
-  separate incident key.
+  separate incident key. An active scheduler cycle is `IN_PROGRESS` through
+  300 seconds, `CYCLE_SLOW` warning through 1860 seconds and then critical
+  `CYCLE_OVERDUE`. An idle PROD scheduler warns at 600 seconds and becomes
+  critical at 900 seconds, matching the five-minute scheduler cadence.
 - Existing Online Compiler incident keys remain unchanged, so deployment over
   current state will not replay `[NEW]`. New keys are limited to stale state
   and idle-overdue conditions. Allowlisted message codes and context fields
@@ -101,10 +104,29 @@ scheduler-health signals.
   state was not cleared. After deployment, natural 15:40 and 15:45 cycles were
   OK and closed it with the normal `[RESOLVED]` path; the check is now severity
   OK, `alert_active=false`, with no pending notification.
-- Natural GP monitor cycles observed the migrated schedulers. The existing
-  Next Dev incident recovered after healthy confirmation through its preserved
-  key, without `[NEW]` replay. All Online Compiler checks have
-  `alert_active=false`, severity OK and no pending notifications.
+- At the October 5 cutover checkpoint, natural GP monitor cycles observed the
+  migrated schedulers and the then-existing Next Dev incident recovered after
+  healthy confirmation through its preserved key, without `[NEW]` replay. A
+  later independent Next Dev FAILED/HOLD incident remains active and is not a
+  monitor regression.
+- Scheduler cadence monitoring validation on 2026-10-06 passed 44 shared and
+  158 legacy tests, JSON parsing, bytecode compilation and diff checks. The
+  sandbox legacy run retained 15 EROFS harness errors; the identical
+  host-context run passed 158/158.
+- GP deployment backup is root-only at
+  `/root/system-monitor-rollbacks/20261006T0725-scheduler-freshness`. Installed
+  adapter, notification allowlist, profile and priorities hashes match the
+  repository candidate. A private state-copy `--no-notify` run recognized the
+  running PROD cycle as `IN_PROGRESS`, kept the real Next Dev FAILED/HOLD
+  signals critical and did not touch production state.
+- The natural 07:26 monitor cycle passed with PROD healthy. During the
+  controlled scheduler deployment the intentionally stopped PROD timer was
+  observed at 07:30 and generated one MEDIUM scheduler alert. State was not
+  cleared; concurrent 07:35 and 07:40 monitor cycles correctly classified the
+  running new PROD cycles as `IN_PROGRESS`. The second healthy observation
+  closed the controlled alert through the standard recovery path and emitted
+  one `[RESOLVED]`. PROD freshness, environment and scheduler keys are now OK
+  with no active incident or pending notification.
 
 ## Constraints
 
@@ -119,11 +141,15 @@ scheduler-health signals.
 
 1. Read this file and check all three repository worktrees before editing.
 2. Verify the GP system timer and devbox user timer remain active and their most
-   recent services completed successfully. Check the seven Online Compiler keys
-   and `remote-dead-man:gp-monitor` without clearing or replacing state.
+   recent services completed successfully. Check the Online Compiler keys and
+   `remote-dead-man:gp-monitor` without clearing or replacing state.
 3. Keep GP-local scheduler checks and the devbox three-cycle dead-man probe.
    Any shadow validation must use both `--no-notify` and a private state path;
    do not manufacture a failure to test notification delivery.
-4. Preserve installed entrypoints, state paths, environment permissions and
+4. Observe at least 24 hours of natural five-minute PROD cycles, including the
+   next OPEN boundary. Confirm `IN_PROGRESS` does not flap to stale, a cycle
+   over five minutes remains visible as `CYCLE_SLOW`, and missed idle slots
+   retain the 600/900-second thresholds.
+5. Preserve installed entrypoints, state paths, environment permissions and
    the three-channel message contract. Investigate application incidents in
    their owning repository and never clear monitor state to force recovery.

@@ -44,6 +44,8 @@ MESSAGE_CONTEXT_FIELDS = {
         },
     },
     "ONLINE_COMPILER_STATE_STALE": {},
+    "ONLINE_COMPILER_CYCLE_SLOW": {},
+    "ONLINE_COMPILER_CYCLE_OVERDUE": {},
     "ONLINE_COMPILER_IDLE_OVERDUE": {
         "idleSeconds": "nonnegative_integer",
         "idleThresholdSeconds": "nonnegative_integer",

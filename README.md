@@ -29,9 +29,13 @@ receiver keeps its established `/usr/local/lib/gp-monitor/` entrypoint for
 rollback compatibility, but the active GP profile reads the local system
 scheduler units and owner-only state under
 `/var/lib/online-compiler-scheduler/`. Scheduler health, environment state,
-state freshness and Next Dev idle expiry are reported independently. The
-established external-heartbeat incident keys remain unchanged so an existing
-incident is not replayed as `[NEW]` during migration.
+state freshness and Next Dev idle expiry are reported independently. A running
+cycle is `IN_PROGRESS`, becomes `CYCLE_SLOW` after five minutes and
+`CYCLE_OVERDUE` after the service's 30-minute deadline plus one minute of
+tolerance. An idle production scheduler warns after two missed five-minute
+slots and becomes critical after three. The established external-heartbeat
+incident keys remain unchanged so an existing incident is not replayed as
+`[NEW]` during migration.
 
 The devbox profile has one bounded read-only dead-man probe for GP. It executes
 a fixed SSH `systemctl show gp-monitor.service` command and is classified as a

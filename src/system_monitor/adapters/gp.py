@@ -286,6 +286,13 @@ class Result:
     notification_context: dict[str, Any] | None = None
 
 
+@dataclass(frozen=True)
+class SchedulerUnitObservation:
+    healthy: bool
+    reason: str
+    cycle_state: str
+
+
 class Monitor:
     def __init__(self, config: dict[str, Any], notify: bool = True) -> None:
         self.config = config
@@ -357,33 +364,50 @@ class Monitor:
             )
         )
 
-    def _scheduler_unit_state(self, timer: str, service: str) -> tuple[bool, str]:
+    def _scheduler_unit_state(
+        self,
+        timer: str,
+        service: str,
+        cycle_warning_seconds: int,
+        cycle_overdue_seconds: int,
+    ) -> SchedulerUnitObservation:
         active = self.run_command(["systemctl", "is-active", timer])
         enabled = self.run_command(["systemctl", "is-enabled", timer])
         properties = self.run_command(
             [
                 "systemctl", "show", service, "--property=ActiveState",
                 "--property=Result", "--property=ExecMainStatus",
+                "--property=ExecMainStartTimestamp",
             ]
         )
         values = self.parse_properties(properties.stdout)
+        active_state = values.get("ActiveState")
         healthy = (
             active.returncode == 0
             and active.stdout.strip() == "active"
             and enabled.returncode == 0
             and enabled.stdout.strip() == "enabled"
             and properties.returncode == 0
-            and values.get("ActiveState") in {"active", "activating", "deactivating", "inactive"}
+            and active_state in {"active", "activating", "deactivating", "inactive"}
             and values.get("Result") == "success"
             and values.get("ExecMainStatus") == "0"
         )
         if active.stdout.strip() != "active" or enabled.stdout.strip() != "enabled":
-            return healthy, "TIMER_INACTIVE"
+            return SchedulerUnitObservation(healthy, "TIMER_INACTIVE", "STALE")
         if values.get("ExecMainStatus") == "20":
-            return False, "CYCLE_BLOCKED"
+            return SchedulerUnitObservation(False, "CYCLE_BLOCKED", "STALE")
         if not healthy:
-            return False, "AUTH_OR_CYCLE_FAILED"
-        return True, "NONE"
+            return SchedulerUnitObservation(False, "AUTH_OR_CYCLE_FAILED", "STALE")
+        if active_state in {"active", "activating", "deactivating"}:
+            started_at = timestamp_epoch(values.get("ExecMainStartTimestamp", ""))
+            if started_at is None or started_at > self.now + 60:
+                return SchedulerUnitObservation(False, "STATE_UNVERIFIED", "STALE")
+            if self.now - started_at > cycle_overdue_seconds:
+                return SchedulerUnitObservation(False, "CYCLE_OVERDUE", "CYCLE_OVERDUE")
+            if self.now - started_at > cycle_warning_seconds:
+                return SchedulerUnitObservation(True, "NONE", "CYCLE_SLOW")
+            return SchedulerUnitObservation(True, "NONE", "IN_PROGRESS")
+        return SchedulerUnitObservation(True, "NONE", "IDLE")
 
     @staticmethod
     def _scheduler_json(path: Path) -> dict[str, Any]:
@@ -482,19 +506,56 @@ class Monitor:
                     )
                 continue
 
+            try:
+                unit = self._scheduler_unit_state(
+                    check["timer_unit"], check["service_unit"],
+                    int(check.get("cycle_warning_seconds", 300)),
+                    int(check.get("cycle_overdue_seconds", 1860)),
+                )
+            except (OSError, subprocess.TimeoutExpired, ValueError, TypeError):
+                unit = SchedulerUnitObservation(False, "STATE_UNVERIFIED", "STALE")
+
             age = self.now - health_time
-            freshness = (
-                "critical" if age < -60
-                else threshold_severity(
+            if age < -60:
+                freshness = "critical"
+                freshness_summary = "Online Compiler scheduler state is stale"
+                freshness_state = "STALE"
+            elif unit.cycle_state == "IN_PROGRESS":
+                freshness = "ok"
+                freshness_summary = "Online Compiler scheduler cycle is in progress"
+                freshness_state = "IN_PROGRESS"
+            elif unit.cycle_state == "CYCLE_SLOW":
+                freshness = "warning"
+                freshness_summary = "Online Compiler scheduler cycle is slower than expected"
+                freshness_state = "CYCLE_SLOW"
+            elif unit.cycle_state == "CYCLE_OVERDUE":
+                freshness = "critical"
+                freshness_summary = "Online Compiler scheduler cycle is overdue"
+                freshness_state = "CYCLE_OVERDUE"
+            else:
+                freshness = threshold_severity(
                     max(0, age), float(check["freshness_warning_seconds"]),
                     float(check["freshness_critical_seconds"]),
                 )
-            )
+                freshness_summary = (
+                    "Online Compiler scheduler state is fresh"
+                    if freshness == "ok"
+                    else "Online Compiler scheduler state is stale"
+                )
+                freshness_state = "FRESH" if freshness == "ok" else "STALE"
             self.add(
                 freshness_key, freshness,
-                "Online Compiler scheduler state is fresh" if freshness == "ok" else "Online Compiler scheduler state is stale",
+                freshness_summary, freshness_state,
                 notification_class="durable",
-                notification_code="ONLINE_COMPILER_STATE_STALE" if freshness != "ok" else "",
+                notification_code=(
+                    "ONLINE_COMPILER_CYCLE_SLOW"
+                    if freshness_state == "CYCLE_SLOW"
+                    else "ONLINE_COMPILER_CYCLE_OVERDUE"
+                    if freshness_state == "CYCLE_OVERDUE"
+                    else "ONLINE_COMPILER_STATE_STALE"
+                    if freshness != "ok"
+                    else ""
+                ),
             )
 
             environment_healthy = environment_status not in {"FAILED", "UNKNOWN"}
@@ -504,22 +565,16 @@ class Monitor:
                 notification_class="durable",
             )
 
-            try:
-                unit_healthy, unit_reason = self._scheduler_unit_state(
-                    check["timer_unit"], check["service_unit"]
-                )
-            except (OSError, subprocess.TimeoutExpired, ValueError, TypeError):
-                unit_healthy, unit_reason = False, "STATE_UNVERIFIED"
-            blocked = holds > 0 or unit_reason == "CYCLE_BLOCKED" or health.get("reasonCode") in {
+            blocked = holds > 0 or unit.reason == "CYCLE_BLOCKED" or health.get("reasonCode") in {
                 "CYCLE_BLOCKED", "HOLD_PRESENT",
             }
-            scheduler_healthy = unit_healthy and health["status"] == "HEALTHY" and not blocked
+            scheduler_healthy = unit.healthy and health["status"] == "HEALTHY" and not blocked
             if blocked:
                 code = "ONLINE_COMPILER_SCHEDULER_BLOCKED"
                 context = {"environmentStatus": environment_status, "holdCount": holds}
             elif not scheduler_healthy:
                 code = "ONLINE_COMPILER_SCHEDULER_DEGRADED"
-                reason = unit_reason if not unit_healthy else str(health["reasonCode"])
+                reason = unit.reason if not unit.healthy else str(health["reasonCode"])
                 context = {"environmentStatus": environment_status, "reasonCode": reason}
             else:
                 code, context = "", None

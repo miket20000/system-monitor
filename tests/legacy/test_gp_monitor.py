@@ -93,8 +93,10 @@ class ConfigCoverageTests(unittest.TestCase):
                 "schedule_path": "/var/lib/online-compiler-scheduler/production/schedule.json",
                 "health_path": "/var/lib/online-compiler-scheduler/production/scheduler-health.json",
                 "holds_path": "/var/lib/online-compiler-scheduler/production/holds",
-                "freshness_warning_seconds": 180,
-                "freshness_critical_seconds": 300,
+                "freshness_warning_seconds": 600,
+                "freshness_critical_seconds": 900,
+                "cycle_warning_seconds": 300,
+                "cycle_overdue_seconds": 1860,
             },
         )
 
@@ -119,6 +121,8 @@ class ConfigCoverageTests(unittest.TestCase):
                 "holds_path": "/var/lib/online-compiler-scheduler/next-dev/holds",
                 "freshness_warning_seconds": 1200,
                 "freshness_critical_seconds": 2100,
+                "cycle_warning_seconds": 300,
+                "cycle_overdue_seconds": 1860,
                 "idle_threshold_seconds": 3600,
                 "idle_grace_seconds": 900,
             },
