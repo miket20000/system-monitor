@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-07 10:42 CEST (Europe/Warsaw)
+Updated: 2026-10-07 10:47 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -61,6 +61,13 @@ scheduler-health signals.
 - The neutral-running rule is limited to `Type=oneshot`. An active long-running
   service such as `minecraft-bedrock.service` (`Type=simple`) remains healthy
   even when its timer history contains an older interrupted invocation.
+- AnyDesk is intentionally retired on devbox: `anydesk.service` autostart is
+  disabled, the unit is absent from the deployed devbox profile and its exact
+  obsolete state entry was removed without changing other incidents. No
+  synthetic recovery notification was generated.
+- GP Monitor runs at minutes `01/06/11/...`, one minute after the network-disk
+  mirror's `00/05/10/...` cadence. This preserves the five-minute interval and
+  samples the mirror's completed result instead of its transient running state.
 - Password Reset retains separate technical account/orchestrator checks, while
   deployed commit `04957e4` aggregates their LOW notification lifecycle under
   one `Password Reset` group. Partial member recovery stays silent and the
@@ -268,6 +275,21 @@ scheduler-health signals.
   state was cleared or replaced and no rollback was performed. The smallest
   source repair now rejects `ok` as the baseline of an active incident and has
   passed the complete 224-test suite; repeat staged rollout is pending.
+- PASS: AnyDesk retirement passed 64 devbox legacy tests and JSON/diff checks.
+  The deployed profile matches the repository file; the unit is
+  `disabled/inactive`, the retired key is absent from production state, pending
+  notifications remain empty and `last_low_digest_date=2026-10-07` is
+  preserved. The natural 10:45 devbox cycle exited 0 without recreating it.
+- PASS: the staggered GP timer passed `systemd-analyze verify` and calendar
+  parsing. The deployed unit is enabled/active with
+  `OnCalendar=*-*-* *:1/5:00 Europe/Warsaw`. Mirror failed naturally at
+  10:45:04 with exit 3; GP Monitor completed at 10:46:18 with exit 0 and
+  recorded the completed mirror result as CRITICAL. Production state was not
+  cleared or replaced.
+- BLOCKED (test invocation only): plain `pytest -q` could not import the local
+  package. The corrected `PYTHONPATH=src pytest -q` passed 223 tests and 48
+  subtests before the concurrent baseline repair added its final regression;
+  that repair separately passed 224 tests and 48 subtests.
 
 ## Constraints
 
@@ -298,7 +320,9 @@ scheduler-health signals.
    idle thresholds; investigate repeated `CYCLE_SLOW` observations as real
    latency without classifying them as scheduler failure.
 5. Preserve installed entrypoints, state paths, environment permissions and
-   the three-channel message contract. Deploy devbox first, observe at least two
-   natural cycles, then GP; verify that a running failing mirror cannot emit
-   recovery. Investigate application incidents in their owning repository and
-   never clear monitor state to force recovery.
+   the three-channel message contract. Keep GP Monitor one minute after the
+   mirror cadence so completed mirror failures remain observable. The current
+   mirror divergence is a data reconciliation incident: retain both-side
+   backups and verified manifests before resolving it. Investigate application
+   incidents in their owning repository and never clear monitor state to force
+   recovery.

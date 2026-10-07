@@ -3,7 +3,7 @@ Description=Run GP server health monitor every five minutes
 
 [Timer]
 OnBootSec=2min
-OnCalendar=*-*-* *:0/5:00 Europe/Warsaw
+OnCalendar=*-*-* *:1/5:00 Europe/Warsaw
 AccuracySec=30s
 Persistent=true
 Unit=gp-monitor.service

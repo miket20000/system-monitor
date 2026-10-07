@@ -49,8 +49,7 @@
     {"unit": "docker.service"},
     {"unit": "smbd.service"},
     {"unit": "smartmontools.service"},
-    {"unit": "gdm.service"},
-    {"unit": "anydesk.service"}
+    {"unit": "gdm.service"}
   ],
   "user_services": [
     {"unit": "gnome-remote-desktop.service"},

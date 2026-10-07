@@ -69,7 +69,6 @@ class ConfigCoverageTests(unittest.TestCase):
                 "smbd.service",
                 "smartmontools.service",
                 "gdm.service",
-                "anydesk.service",
             },
         )
         self.assertEqual(
