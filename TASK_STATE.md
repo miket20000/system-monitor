@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-07 16:00 CEST (Europe/Warsaw)
+Updated: 2026-10-07 16:22 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -322,6 +322,13 @@ scheduler-health signals.
   incidents are resolved with no pending notifications. Backups remain at
   `/var/backups/dysk-sieciowy-reconcile-20261007T125641Z-gp` and
   `/var/backups/dysk-sieciowy-reconcile-20261007T125641Z-giganci`.
+- PASS: the authorized controlled Social Media invitation run processed all 33
+  in-scope Facebook pages and excluded `Main-Instagram`. It sent 10 confirmed
+  invitations across seven pages; 26 pages had no current pool, with zero
+  failed, blocked or ambiguous sends. The service exited 0 and its result file
+  is `0600` with status `PASS`. Natural devbox monitor cycles at 16:15 and 16:20
+  confirmed recovery; the check is now OK/inactive and its LOW `RESOLVED`
+  event remains in the normal pending queue for policy-driven delivery.
 - BLOCKED (test invocation only): plain `pytest -q` could not import the local
   package. The corrected `PYTHONPATH=src pytest -q` passed 223 tests and 48
   subtests before the concurrent baseline repair added its final regression;
