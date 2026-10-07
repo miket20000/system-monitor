@@ -276,6 +276,81 @@ class FilesystemTests(MonitorTestCase):
         self.assertFalse(any("portal" in result.key for result in monitor.results))
         self.assertTrue(any(result.key == "filesystem:space:/" for result in monitor.results))
 
+    def test_inaccessible_mount_does_not_abort_remaining_filesystems(self):
+        monitor = self.make_monitor(
+            {
+                "thresholds": {
+                    "disk_warning_percent": 80,
+                    "disk_critical_percent": 90,
+                    "inode_warning_percent": 80,
+                    "inode_critical_percent": 90,
+                }
+            }
+        )
+        mounts = (
+            "/dev/nvme0n1p2 / ext4 rw 0 0\n"
+            "/dev/loop0 /run/buildkit/ephemeral ext4 rw 0 0\n"
+        )
+
+        def disk_usage(path):
+            if path == "/run/buildkit/ephemeral":
+                raise PermissionError(path)
+            return SimpleNamespace(total=100, used=10)
+
+        with (
+            patch("builtins.open", return_value=io.StringIO(mounts)),
+            patch.object(MODULE.shutil, "disk_usage", side_effect=disk_usage),
+            patch.object(
+                MODULE.os,
+                "statvfs",
+                return_value=SimpleNamespace(f_files=100, f_ffree=90),
+            ),
+        ):
+            monitor.check_filesystems()
+
+        keys = {result.key for result in monitor.results}
+        self.assertIn("filesystem:space:/", keys)
+        self.assertIn("filesystem:inodes:/", keys)
+        self.assertFalse(any("ephemeral" in key for key in keys))
+
+    def test_inode_read_error_preserves_space_and_continues(self):
+        monitor = self.make_monitor(
+            {
+                "thresholds": {
+                    "disk_warning_percent": 80,
+                    "disk_critical_percent": 90,
+                    "inode_warning_percent": 80,
+                    "inode_critical_percent": 90,
+                }
+            }
+        )
+        mounts = (
+            "/dev/loop0 /run/buildkit/ephemeral ext4 rw 0 0\n"
+            "/dev/nvme0n1p2 /srv ext4 rw 0 0\n"
+        )
+
+        def statvfs(path):
+            if path == "/run/buildkit/ephemeral":
+                raise OSError(path)
+            return SimpleNamespace(f_files=100, f_ffree=90)
+
+        with (
+            patch("builtins.open", return_value=io.StringIO(mounts)),
+            patch.object(
+                MODULE.shutil,
+                "disk_usage",
+                return_value=SimpleNamespace(total=100, used=10),
+            ),
+            patch.object(MODULE.os, "statvfs", side_effect=statvfs),
+        ):
+            monitor.check_filesystems()
+
+        keys = {result.key for result in monitor.results}
+        self.assertIn("filesystem:space:/run/buildkit/ephemeral", keys)
+        self.assertNotIn("filesystem:inodes:/run/buildkit/ephemeral", keys)
+        self.assertIn("filesystem:space:/srv", keys)
+        self.assertIn("filesystem:inodes:/srv", keys)
+
 
 class TelegramTests(MonitorTestCase):
     def test_format_is_two_sanitized_lines(self):
@@ -668,6 +743,44 @@ class UserTimerTests(MonitorTestCase):
         monitor.check_user_timers()
         self.assertEqual(monitor.results[-1].severity, "ok")
         self.assertIn("currently running", monitor.results[-1].summary)
+
+    def test_running_service_does_not_clear_cached_failure(self):
+        for active_state in ("active", "activating"):
+            with self.subTest(active_state=active_state):
+                monitor = self.timer_monitor()
+                monitor.state["timer_services"] = {
+                    "user-service:job.service:result": {
+                        "status": "failed",
+                        "observed_at": monitor.now - 60,
+                        "incident_id": "previous-failure",
+                        "result": "exit-code",
+                        "exit": "3",
+                    }
+                }
+
+                def run(command, timeout=15):
+                    if "show" in command:
+                        return completed(
+                            command,
+                            stdout=(
+                                "Result=success\nExecMainStatus=0\n"
+                                f"ActiveState={active_state}\nSubState=running\n"
+                            ),
+                        )
+                    return self.base_run(command, timeout)
+
+                monitor.run_command = run
+                monitor.check_user_timers()
+
+                self.assertEqual(monitor.results[-1].severity, "critical")
+                self.assertIn("last known run failed", monitor.results[-1].summary)
+                self.assertEqual(monitor.results[-1].incident_id, "previous-failure")
+                self.assertEqual(
+                    monitor.state["timer_services"][
+                        "user-service:job.service:result"
+                    ]["status"],
+                    "failed",
+                )
 
     def test_failed_service_is_critical_with_invocation_id(self):
         monitor = self.timer_monitor()

@@ -187,7 +187,10 @@ class Monitor:
             )
 
         for mount in sorted(set(mounts)):
-            usage = shutil.disk_usage(mount)
+            try:
+                usage = shutil.disk_usage(mount)
+            except OSError:
+                continue
             used_percent = round((usage.used / usage.total) * 100)
             self.add(
                 f"filesystem:space:{mount}",
@@ -198,7 +201,10 @@ class Monitor:
                 ),
                 f"Disk usage on {mount}: {used_percent}%",
             )
-            stats = os.statvfs(mount)
+            try:
+                stats = os.statvfs(mount)
+            except OSError:
+                continue
             if stats.f_files:
                 inode_percent = round(
                     ((stats.f_files - stats.f_ffree) / stats.f_files) * 100
@@ -612,20 +618,14 @@ class Monitor:
                 ]
             )
             values = self.parse_properties(properties.stdout)
-            if values.get("ActiveState") in {"active", "activating"}:
-                self.add(
-                    service_key,
-                    "ok",
-                    f"{service} is currently running",
-                )
-                continue
+            running = values.get("ActiveState") in {"active", "activating"}
             outcomes: list[ServiceOutcome] = []
             exit_status = safe_status_value(values.get("ExecMainStatus", ""))
             current_completed_at = timestamp_epoch(
                 values.get("ExecMainExitTimestamp", "")
                 or values.get("InactiveExitTimestamp", "")
             )
-            if service_result_failed(values.get("Result", ""), exit_status):
+            if not running and service_result_failed(values.get("Result", ""), exit_status):
                 blocked_exit_statuses = {
                     str(status) for status in timer.get("blocked_exit_statuses", [])
                 }
@@ -638,7 +638,7 @@ class Monitor:
                         safe_status_value(values.get("InvocationID", "")),
                     )
                 )
-            elif current_completed_at is not None:
+            elif not running and current_completed_at is not None:
                 outcomes.append(
                     ServiceOutcome(
                         "success",
@@ -680,6 +680,13 @@ class Monitor:
                 )
 
             if not outcomes:
+                if running:
+                    self.add(
+                        service_key,
+                        "ok",
+                        f"{service} is currently running",
+                    )
+                    continue
                 deadline = timestamp_epoch(str(timer.get("first_success_due", "")))
                 if deadline is not None and self.now < deadline:
                     self.add(

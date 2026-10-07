@@ -1019,14 +1019,9 @@ class Monitor:
             )
             values = self.parse_properties(properties.stdout)
             active_state = values.get("ActiveState", "")
-            sub_state = values.get("SubState", "")
             if active_state in {"active", "activating"}:
-                self.add(
-                    f"system-service:{service}:result",
-                    "ok",
-                    f"{service} is currently running",
-                    f"active={active_state}, sub={sub_state}",
-                )
+                # A running oneshot has no completed outcome. Omitting this result
+                # preserves the last conclusive state without confirming recovery.
                 continue
 
             result = values.get("Result", "")

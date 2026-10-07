@@ -18,23 +18,36 @@ ROOT = Path(__file__).parents[1]
 
 
 class RecordingSender:
-    def __init__(self, fail_priority=None):
+    def __init__(self, fail_priority=None, fail_calls=None):
         self.calls = []
         self.fail_priority = fail_priority
+        self.fail_calls = set(fail_calls or [])
+        self.attempts = 0
 
     def send(self, priority, text):
-        if priority == self.fail_priority:
+        self.attempts += 1
+        if priority == self.fail_priority or self.attempts in self.fail_calls:
             raise RuntimeError("delivery failed")
         self.calls.append((priority, text))
 
 
-def result(key, severity, summary="unhealthy", incident_id="", notification_class="sampled"):
+def result(
+    key,
+    severity,
+    summary="unhealthy",
+    incident_id="",
+    notification_class="sampled",
+    notification_code="",
+    notification_context=None,
+):
     return SimpleNamespace(
         key=key,
         severity=severity,
         summary=summary,
         incident_id=incident_id,
         notification_class=notification_class,
+        notification_code=notification_code,
+        notification_context=notification_context,
     )
 
 
@@ -199,6 +212,72 @@ class NotificationEngineTests(unittest.TestCase):
         self.assertEqual(self.sender.calls[0][0], 2)
         self.assertTrue(self.sender.calls[0][1].startswith("[REMINDER]\n"))
 
+    def test_profile_policy_controls_confirmation_reminder_and_recovery(self):
+        key = "filesystem:space:/"
+        failure = result(key, "critical", "Disk usage 96%")
+        healthy = result(key, "ok", "healthy")
+        engine = NotificationEngine(
+            self.registry,
+            host="gp",
+            now=self.now,
+            notify=True,
+            sender=self.sender,
+            default_failure_confirmation_cycles=1,
+            recovery_confirmation_cycles=1,
+            medium_reminder_seconds=60,
+            suppressed_recovery_keys=[key],
+        )
+        engine.process(self.state, [failure])
+        self.assertTrue(self.sender.calls[0][1].startswith("[NEW]\n"))
+
+        self.sender.calls.clear()
+        engine = NotificationEngine(
+            self.registry,
+            host="gp",
+            now=self.now + 60,
+            notify=True,
+            sender=self.sender,
+            default_failure_confirmation_cycles=1,
+            recovery_confirmation_cycles=1,
+            medium_reminder_seconds=60,
+            suppressed_recovery_keys=[key],
+        )
+        engine.process(self.state, [failure])
+        self.assertTrue(self.sender.calls[0][1].startswith("[REMINDER]\n"))
+
+        self.sender.calls.clear()
+        engine = NotificationEngine(
+            self.registry,
+            host="gp",
+            now=self.now + 120,
+            notify=True,
+            sender=self.sender,
+            recovery_confirmation_cycles=1,
+            suppressed_recovery_keys=[key],
+        )
+        engine.process(self.state, [healthy])
+        self.assertEqual(self.sender.calls, [])
+        self.assertFalse(self.state["checks"][key]["alert_active"])
+
+    def test_suppressed_prefix_does_not_queue_notifications(self):
+        engine = NotificationEngine(
+            self.registry,
+            host="gp",
+            now=self.now,
+            notify=True,
+            sender=self.sender,
+            default_failure_confirmation_cycles=1,
+            suppressed_key_prefixes=["service:internal-"],
+        )
+        engine.process(
+            self.state,
+            [result("service:internal-worker.service", "critical", "not active")],
+        )
+        self.assertEqual(self.sender.calls, [])
+        self.assertFalse(
+            self.state["checks"]["service:internal-worker.service"]["alert_active"]
+        )
+
     def test_failed_channel_keeps_pending_event(self):
         self.sender.fail_priority = 1
         failure = result("service:ai-text.service", "critical", "not active", notification_class="durable", incident_id="one")
@@ -224,6 +303,243 @@ class NotificationEngineTests(unittest.TestCase):
         engine.process(self.state, [high, medium])
         self.assertEqual([priority for priority, _ in self.sender.calls], [2])
         self.assertTrue(any(event["priority"] == 1 for event in self.state["pending_notifications"].values()))
+
+    def test_unsent_new_is_removed_when_recovery_is_confirmed(self):
+        self.sender.fail_priority = 2
+        key = "filesystem:space:/"
+        failure = result(
+            key, "warning", "Disk usage 95%",
+            incident_id="disk-1", notification_class="durable",
+        )
+        healthy = result(
+            key, "ok", "healthy",
+            incident_id="disk-1", notification_class="durable",
+        )
+        self.cycle(failure)
+        self.assertEqual(
+            {event["status"] for event in self.state["pending_notifications"].values()},
+            {"NEW"},
+        )
+        self.cycle(healthy)
+        self.cycle(healthy)
+        self.assertEqual(self.sender.calls, [])
+        self.assertEqual(self.state["pending_notifications"], {})
+
+    def test_existing_contradictory_pending_events_follow_current_state(self):
+        key = "filesystem:space:/"
+        common = {
+            "key": key,
+            "priority": 2,
+            "name": "Dysk systemowy",
+            "host": "gp",
+        }
+        self.state = {
+            "checks": {
+                key: {
+                    "severity": "warning",
+                    "alert_active": True,
+                    "last_notification": self.now - 60,
+                    "priority": 2,
+                    "name": "Dysk systemowy",
+                    "problem": "wykorzystanie dysku przekroczyło próg",
+                    "resolved": "usługa ponownie działa prawidłowo",
+                }
+            },
+            "pending_notifications": {
+                f"2:NEW:{key}": {
+                    **common,
+                    "status": "NEW",
+                    "problem": "wykorzystanie dysku przekroczyło próg",
+                },
+                f"2:RESOLVED:{key}": {
+                    **common,
+                    "status": "RESOLVED",
+                    "problem": "usługa ponownie działa prawidłowo",
+                },
+            },
+        }
+        self.cycle(
+            result(
+                key, "warning", "Disk usage 95%",
+                incident_id="disk-1", notification_class="durable",
+            ),
+            notify=False,
+        )
+        events = list(self.state["pending_notifications"].values())
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["status"], "NEW")
+
+    def test_severity_increase_sends_immediate_reminder(self):
+        key = "filesystem:space:/"
+        self.cycle(
+            result(
+                key, "warning", "Disk usage 91%",
+                incident_id="disk-1", notification_class="durable",
+            )
+        )
+        self.sender.calls.clear()
+        self.cycle(
+            result(
+                key, "critical", "Disk usage 96%",
+                incident_id="disk-1", notification_class="durable",
+            )
+        )
+        self.assertEqual(len(self.sender.calls), 1)
+        self.assertTrue(self.sender.calls[0][1].startswith("[REMINDER]\n"))
+
+    def test_problem_code_change_sends_update_but_dynamic_context_does_not(self):
+        key = "online-compiler-scheduler:production:freshness"
+        self.cycle(
+            result(
+                key, "warning", "slow",
+                incident_id="cycle-1", notification_class="durable",
+                notification_code="ONLINE_COMPILER_CYCLE_SLOW",
+                notification_context={},
+            )
+        )
+        self.sender.calls.clear()
+        self.cycle(
+            result(
+                key, "warning", "overdue",
+                incident_id="cycle-1", notification_class="durable",
+                notification_code="ONLINE_COMPILER_CYCLE_OVERDUE",
+                notification_context={},
+            )
+        )
+        self.assertEqual(len(self.sender.calls), 1)
+        self.assertTrue(self.sender.calls[0][1].startswith("[REMINDER]\n"))
+
+        self.sender.calls.clear()
+        idle_key = "online-compiler-scheduler:production:idle"
+        self.cycle(
+            result(
+                idle_key, "critical", "idle",
+                incident_id="idle-1", notification_class="durable",
+                notification_code="ONLINE_COMPILER_IDLE_OVERDUE",
+                notification_context={
+                    "idleSeconds": 1000,
+                    "idleThresholdSeconds": 900,
+                },
+            )
+        )
+        self.sender.calls.clear()
+        self.cycle(
+            result(
+                idle_key, "critical", "idle",
+                incident_id="idle-1", notification_class="durable",
+                notification_code="ONLINE_COMPILER_IDLE_OVERDUE",
+                notification_context={
+                    "idleSeconds": 1300,
+                    "idleThresholdSeconds": 900,
+                },
+            )
+        )
+        self.assertEqual(self.sender.calls, [])
+
+    def test_immediate_messages_honor_item_and_telegram_limits(self):
+        pending = {}
+        for index in range(20):
+            key = f"custom:{index}"
+            event = {
+                "key": key,
+                "priority": 1,
+                "status": "NEW",
+                "name": "N" * 180,
+                "problem": "P" * 180,
+                "host": "gp",
+            }
+            pending[f"1:NEW:{key}"] = event
+        state = {"checks": {}, "pending_notifications": pending}
+        NotificationEngine(
+            self.registry,
+            host="gp",
+            now=self.now,
+            notify=True,
+            sender=self.sender,
+            max_items_per_message=20,
+        ).process(state, [])
+        self.assertGreater(len(self.sender.calls), 1)
+        for _, text in self.sender.calls:
+            self.assertLessEqual(len(text), 4096)
+            self.assertLessEqual(len(text.splitlines()) - 1, 20)
+        self.assertEqual(state["pending_notifications"], {})
+
+    def test_failed_message_chunk_retries_only_that_chunk(self):
+        sender = RecordingSender(fail_calls={2})
+        pending = {}
+        for index in range(5):
+            key = f"custom:{index}"
+            pending[f"1:NEW:{key}"] = {
+                "key": key,
+                "priority": 1,
+                "status": "NEW",
+                "name": f"Kontrola {index}",
+                "problem": "wykryto nieprawidłowy stan",
+                "host": "gp",
+            }
+        state = {"checks": {}, "pending_notifications": pending}
+        NotificationEngine(
+            self.registry,
+            host="gp",
+            now=self.now,
+            notify=True,
+            sender=sender,
+            max_items_per_message=2,
+        ).process(state, [])
+        self.assertEqual(len(sender.calls), 2)
+        self.assertEqual(len(state["pending_notifications"]), 2)
+
+        NotificationEngine(
+            self.registry,
+            host="gp",
+            now=self.now + 300,
+            notify=True,
+            sender=sender,
+            max_items_per_message=2,
+        ).process(state, [])
+        self.assertEqual(len(sender.calls), 3)
+        self.assertEqual(state["pending_notifications"], {})
+
+    def test_failed_low_digest_chunk_does_not_repeat_sent_chunks(self):
+        sender = RecordingSender(fail_calls={2})
+        pending = {}
+        for index in range(5):
+            key = f"daily-success:custom-{index}"
+            pending[f"3:NEW:{key}"] = {
+                "key": key,
+                "priority": 3,
+                "status": "NEW",
+                "name": f"Kontrola {index}",
+                "problem": "ostatni przebieg zakończył się niepowodzeniem",
+                "host": "gp",
+            }
+        state = {"checks": {}, "pending_notifications": pending}
+        NotificationEngine(
+            self.registry,
+            host="gp",
+            now=self.now,
+            notify=True,
+            sender=sender,
+            max_items_per_message=2,
+        ).process(state, [])
+        self.assertEqual(len(sender.calls), 2)
+        self.assertEqual(len(state["pending_notifications"]), 2)
+        self.assertNotIn("last_low_digest_date", state)
+
+        NotificationEngine(
+            self.registry,
+            host="gp",
+            now=self.now + 300,
+            notify=True,
+            sender=sender,
+            max_items_per_message=2,
+        ).process(state, [])
+        self.assertEqual(len(sender.calls), 3)
+        self.assertEqual(state["pending_notifications"], {})
+        self.assertEqual(state["last_low_digest_date"], "2026-10-04")
+        delivered = "\n".join(text for _, text in sender.calls)
+        for index in range(5):
+            self.assertEqual(delivered.count(f"Kontrola {index} :"), 1)
 
     def test_legacy_active_incident_is_not_replayed(self):
         self.state = {
@@ -341,6 +657,7 @@ class ProfileTests(unittest.TestCase):
             self.assertEqual(profile["schema_version"], 1)
             self.assertEqual(profile["adapter"], adapter)
             self.assertIn("priorities_file", profile)
+            self.assertEqual(profile["notifications"]["max_items_per_message"], 20)
 
     def test_password_reset_is_monitored_without_pending_contents(self):
         profile = json.loads((ROOT / "profiles/devbox.json").read_text())
@@ -416,6 +733,55 @@ class ProfileTests(unittest.TestCase):
         for key, expected_name in cases.items():
             display = registry.display(key, "last run failed")
             self.assertEqual(display.priority, 3, key)
+            self.assertEqual(display.name, expected_name, key)
+            names.append(display.name)
+        self.assertEqual(len(names), len(set(names)))
+
+    def test_password_reset_checks_have_unambiguous_names(self):
+        registry = PriorityRegistry.load(ROOT / "config/priorities.json")
+        cases = {
+            "daily-success:password-reset-primary": "Password Reset primary",
+            "daily-success:password-reset-canva1": "Password Reset canva1",
+            "daily-success:password-reset-canva2": "Password Reset canva2",
+            "daily-success:password-reset-canva3": "Password Reset canva3",
+            "user-service:password-reset-orchestrator.service:result": (
+                "Password Reset orchestrator"
+            ),
+        }
+        names = []
+        for key, expected_name in cases.items():
+            display = registry.display(key, "last run failed")
+            self.assertEqual(display.priority, 3, key)
+            self.assertEqual(display.name, expected_name, key)
+            names.append(display.name)
+        self.assertEqual(len(names), len(set(names)))
+
+    def test_online_compiler_signals_identify_environment_and_signal(self):
+        registry = PriorityRegistry.load(ROOT / "config/priorities.json")
+        cases = {
+            "external-heartbeat:online-compiler-production-schedule": (
+                "Scheduler Online Compiler PROD"
+            ),
+            "online-compiler-environment:production": (
+                "Środowisko Online Compiler PROD"
+            ),
+            "online-compiler-scheduler:production:freshness": (
+                "Stan schedulera Online Compiler PROD"
+            ),
+            "external-heartbeat:online-compiler-next-dev-hibernation": (
+                "Scheduler Online Compiler Next Dev"
+            ),
+            "online-compiler-environment:next-dev": (
+                "Środowisko Online Compiler Next Dev"
+            ),
+            "online-compiler-scheduler:next-dev:freshness": (
+                "Stan schedulera Online Compiler Next Dev"
+            ),
+        }
+        names = []
+        for key, expected_name in cases.items():
+            display = registry.display(key, "unhealthy")
+            self.assertEqual(display.priority, 2, key)
             self.assertEqual(display.name, expected_name, key)
             names.append(display.name)
         self.assertEqual(len(names), len(set(names)))

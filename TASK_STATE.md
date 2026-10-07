@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-07 07:40 CEST (Europe/Warsaw)
+Updated: 2026-10-07 07:49 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -38,13 +38,27 @@ scheduler-health signals.
   period. A changing durable evidence ID updates the stored evidence but does
   not reopen `[NEW]`; another `[NEW]` is possible only after two healthy cycles
   confirm recovery. Pending events are refreshed from the current registry.
+- The repository now contains an undeployed notification-correctness candidate.
+  Pending delivery is coalesced to one current event per check, severity or
+  stable message-code escalation emits an immediate `REMINDER`, and Telegram
+  payloads are split by both item count and 4096-character length with retry
+  isolated to failed chunks. The shared engine honors the profile confirmation,
+  MEDIUM reminder and recovery-suppression policy.
+- A running timer-backed oneshot is neutral rather than recovery evidence. GP
+  omits the inconclusive result and devbox retains its last conclusive outcome;
+  only a completed healthy result can advance recovery. Devbox filesystem
+  discovery also isolates inaccessible ephemeral mounts instead of aborting the
+  entire monitor cycle.
+- Password Reset checks and Online Compiler environment/scheduler signals have
+  distinct user-facing names while retaining their technical incident keys.
 - Backup, verification, retention, restore-test and GP mail-archive jobs have
   explicit LOW display names, including `Backup Devbox`, `Backup GP` and
   `Archiwizacja poczty GP`.
 - GP-local scheduler checks are deployed in the root system runtime, and the
   three-cycle GP dead-man is deployed in the devbox user runtime. Production
-  state v3 was preserved on both hosts; source/runtime/profile/priority hashes
-  match and both timers are active.
+  state v3 was preserved on both hosts and both timers were active at the last
+  readback. The notification-correctness candidate described above is newer
+  than both installed runtimes and has not been deployed.
 - Private-state shadow runs used both `--no-notify` and a private state copy.
   GP returned all configured results with all seven Online Compiler checks OK;
   devbox returned `remote-dead-man:gp-monitor=OK`.
@@ -139,10 +153,27 @@ scheduler-health signals.
   `PASS_OPEN` cycle. The 562.794-second `PASS_CLOSED` completed before the
   next warning sample. There were no false-positive PROD alerts, availability
   failures or active/pending PROD incidents at the end of the window.
-- A separate, out-of-scope monitor issue remains: `dysk-sieciowy-mirror`
-  emitted false recovery events when observation coincided with an active
-  service that later exited 3. It does not affect the Online Compiler result
-  and was not changed in this task.
+- The 24-hour scheduler observation identified a separate false recovery for
+  `dysk-sieciowy-mirror`: the monitor sampled an active invocation that later
+  exited 3. The repository candidate now treats such an active oneshot as
+  inconclusive, so it cannot advance recovery before a successful completion.
+- A read-only notification audit for `[2026-10-06 07:43:34,
+  2026-10-07 07:30:30]` CEST confirmed 24 successful Telegram sends and zero
+  delivery failures. It also found two devbox cycles aborted by inaccessible
+  BuildKit mounts, contradictory LOW lifecycle events and the false mirror
+  recovery above. The source candidate fixes these monitor defects; underlying
+  Meta API watcher, Next Dev, network-disk sync/mirror and AnyDesk incidents
+  remain owned by their respective components.
+- PASS: the integrated source candidate passed `pytest`: 217 tests and 48
+  subtests. Coverage includes inaccessible mounts, active timer services after
+  failure, pending-event coalescence, severity/code escalation without dynamic
+  context spam, profile policy, Telegram item/length chunking, and partial
+  HIGH/LOW retry. JSON parsing, `py_compile`, `git diff --check` and a targeted
+  credential scan also passed.
+- BLOCKED (test invocation only): `python3 -m unittest discover -s tests -t .`
+  rejected the non-package `tests` directory. Direct execution of all four test
+  modules passed 217/217, and the canonical full `pytest` run passed. This was
+  not an application failure.
 
 ## Constraints
 
@@ -152,13 +183,18 @@ scheduler-health signals.
 - Preserve legacy `TELEGRAM_CHAT_ID` for unrelated consumers.
 - Do not manufacture incidents or expose URLs, payloads, tokens or chat IDs in
   notifications and logs.
+- Source commit, deployment and production-state migration remain separate
+  authorization gates. The current candidate must not be copied to either host
+  without a fresh runtime/state readback and explicit deployment authorization.
 
 ## START HERE
 
 1. Read this file and check all three repository worktrees before editing.
-2. Verify the GP system timer and devbox user timer remain active and their most
-   recent services completed successfully. Check the Online Compiler keys and
-   `remote-dead-man:gp-monitor` without clearing or replacing state.
+   Treat the repository notification-correctness candidate as undeployed.
+2. Before any authorized deployment, verify the GP system timer and devbox user
+   timer remain active, read both installed hashes and inspect current v3 state
+   without clearing or replacing it. In particular, retain real active
+   incidents and let the candidate coalesce pending lifecycle entries naturally.
 3. Keep GP-local scheduler checks and the devbox three-cycle dead-man probe.
    Any shadow validation must use both `--no-notify` and a private state path;
    do not manufacture a failure to test notification delivery.
@@ -167,5 +203,7 @@ scheduler-health signals.
    idle thresholds; investigate repeated `CYCLE_SLOW` observations as real
    latency without classifying them as scheduler failure.
 5. Preserve installed entrypoints, state paths, environment permissions and
-   the three-channel message contract. Investigate application incidents in
-   their owning repository and never clear monitor state to force recovery.
+   the three-channel message contract. Deploy devbox first, observe at least two
+   natural cycles, then GP; verify that a running failing mirror cannot emit
+   recovery. Investigate application incidents in their owning repository and
+   never clear monitor state to force recovery.

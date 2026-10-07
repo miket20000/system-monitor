@@ -8,10 +8,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
+from system_monitor.notifications import NotificationEngine, PriorityRegistry
+
 
 ROOT = Path(__file__).parents[2]
 MODULE_PATH = ROOT / "src/system_monitor/adapters/gp.py"
 CONFIG_PATH = ROOT / "profiles/gp.json"
+PRIORITIES_PATH = ROOT / "config/priorities.json"
 SPEC = importlib.util.spec_from_file_location("gp_monitor", MODULE_PATH)
 MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
@@ -1936,6 +1939,86 @@ class SystemTimerTests(unittest.TestCase):
         self.assertEqual(len(service_results), 1)
         self.assertEqual(service_results[0].severity, "ok")
         self.assertIn("awaiting its first scheduled run", service_results[0].summary)
+
+    def test_running_system_timer_does_not_confirm_failed_service_recovery(self) -> None:
+        state_path = Path(__file__).with_name(".gp-monitor-test-state.json")
+        state_path.unlink(missing_ok=True)
+        self.addCleanup(state_path.unlink, missing_ok=True)
+        config = {
+            "state_file": str(state_path),
+            "system_timers": [
+                {
+                    "unit": "example.timer",
+                    "service": "example.service",
+                    "warning_hours": 1,
+                    "critical_hours": 2,
+                }
+            ],
+        }
+        monitor = MODULE.Monitor(config, notify=False)
+        monitor.now = 1_800_000_000.0
+        service_key = "system-service:example.service:result"
+        monitor.state["checks"][service_key] = {
+            "severity": "critical",
+            "last_seen": monitor.now - 300,
+            "last_notification": monitor.now,
+            "summary": "example.service failed",
+            "incident_id": "failed-invocation",
+            "notification_class": "durable",
+            "alert_active": True,
+            "failure_streak": 0,
+            "recovery_streak": 1,
+            "priority": 3,
+            "name": "Example",
+            "problem": "ostatni przebieg zakończył się niepowodzeniem",
+            "resolved": "zadanie ponownie zakończyło się pomyślnie",
+        }
+
+        def fake_run_command(command, timeout=15):
+            if command == ["systemctl", "is-active", "example.timer"]:
+                return subprocess.CompletedProcess(command, 0, "active\n", "")
+            if command == ["systemctl", "is-enabled", "example.timer"]:
+                return subprocess.CompletedProcess(command, 0, "enabled\n", "")
+            if command[:3] == ["systemctl", "show", "example.service"]:
+                return subprocess.CompletedProcess(
+                    command,
+                    0,
+                    "\n".join(
+                        [
+                            "Result=success",
+                            "ExecMainStatus=0",
+                            "ExecMainExitTimestamp=",
+                            "ActiveState=activating",
+                            "SubState=start",
+                            "InvocationID=running-invocation",
+                        ]
+                    ),
+                    "",
+                )
+            return subprocess.CompletedProcess(command, 1, "", "unexpected command")
+
+        monitor.run_command = fake_run_command
+        monitor.check_system_timers()
+
+        self.assertNotIn(service_key, {result.key for result in monitor.results})
+        engine = NotificationEngine(
+            PriorityRegistry.load(PRIORITIES_PATH),
+            host="gp",
+            now=monitor.now,
+            notify=False,
+        )
+        engine.process(monitor.state, monitor.results)
+
+        service_state = monitor.state["checks"][service_key]
+        self.assertEqual(service_state["severity"], "critical")
+        self.assertTrue(service_state["alert_active"])
+        self.assertEqual(service_state["recovery_streak"], 1)
+        self.assertFalse(
+            any(
+                event.get("key") == service_key and event.get("status") == "RESOLVED"
+                for event in monitor.state.get("pending_notifications", {}).values()
+            )
+        )
 
     def test_check_system_timer_uses_journal_when_systemd_timestamp_is_empty(self) -> None:
         state_path = Path(__file__).with_name(".gp-monitor-test-state.json")

@@ -20,7 +20,8 @@
   },
   "notifications": {
     "warning_cooldown_seconds": 3600,
-    "critical_cooldown_seconds": 900
+    "critical_cooldown_seconds": 900,
+    "max_items_per_message": 20
   },
   "notification_overrides": {
     "user-service:socialmedia-weekly-invitations.service:result": {

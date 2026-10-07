@@ -21,6 +21,9 @@ CHAT_ENV = {
     3: "TELEGRAM_CHAT_ID_LOW",
 }
 STATUS_ORDER = ("NEW", "REMINDER", "RESOLVED")
+TELEGRAM_MESSAGE_LIMIT = 4096
+DEFAULT_MAX_ITEMS_PER_MESSAGE = 20
+SEVERITY_RANK = {"ok": 0, "warning": 1, "critical": 2}
 TYPE_WORDS = re.compile(
     r"\b(endpoint|service|timer|cron|heartbeat|filesystem|database)\b", re.I
 )
@@ -267,6 +270,13 @@ class NotificationEngine:
         now: float,
         notify: bool,
         sender: TelegramSender | None = None,
+        max_items_per_message: int = DEFAULT_MAX_ITEMS_PER_MESSAGE,
+        default_failure_confirmation_cycles: int = 2,
+        network_failure_confirmation_cycles: int = 3,
+        recovery_confirmation_cycles: int = 2,
+        medium_reminder_seconds: int = 21600,
+        suppressed_recovery_keys: Iterable[str] = (),
+        suppressed_key_prefixes: Iterable[str] = (),
     ) -> None:
         if host not in {"devbox", "gp"}:
             raise ValueError("Unsupported host label")
@@ -275,6 +285,22 @@ class NotificationEngine:
         self.now = now
         self.notify = notify
         self.sender = sender or TelegramSender()
+        if max_items_per_message < 1:
+            raise ValueError("max_items_per_message must be positive")
+        if min(
+            default_failure_confirmation_cycles,
+            network_failure_confirmation_cycles,
+            recovery_confirmation_cycles,
+            medium_reminder_seconds,
+        ) < 1:
+            raise ValueError("Notification policy values must be positive")
+        self.max_items_per_message = max_items_per_message
+        self.default_failure_confirmation_cycles = default_failure_confirmation_cycles
+        self.network_failure_confirmation_cycles = network_failure_confirmation_cycles
+        self.recovery_confirmation_cycles = recovery_confirmation_cycles
+        self.medium_reminder_seconds = medium_reminder_seconds
+        self.suppressed_recovery_keys = frozenset(suppressed_recovery_keys)
+        self.suppressed_key_prefixes = tuple(suppressed_key_prefixes)
 
     @staticmethod
     def _pending_id(event: dict[str, Any]) -> str:
@@ -282,6 +308,21 @@ class NotificationEngine:
 
     def _queue(self, state: dict[str, Any], event: dict[str, Any]) -> None:
         pending = state.setdefault("pending_notifications", {})
+        existing = [
+            (event_id, queued)
+            for event_id, queued in pending.items()
+            if queued.get("key") == event["key"]
+        ]
+        existing_statuses = {queued.get("status") for _, queued in existing}
+        for event_id, _ in existing:
+            pending.pop(event_id, None)
+
+        # A recovery that was confirmed before NEW could be delivered needs no
+        # external lifecycle message. A reminder must not replace an unsent NEW.
+        if event["status"] == "RESOLVED" and "NEW" in existing_statuses:
+            return
+        if event["status"] == "REMINDER" and "NEW" in existing_statuses:
+            event = {**event, "status": "NEW"}
         pending[self._pending_id(event)] = event
 
     def _refresh_pending(
@@ -290,37 +331,95 @@ class NotificationEngine:
         *,
         key: str,
         display: Display,
+        alert_active: bool,
     ) -> None:
         pending = state.setdefault("pending_notifications", {})
-        for event_id, event in list(pending.items()):
-            if event.get("key") != key:
-                continue
-            refreshed = {
-                **event,
-                "priority": display.priority,
-                "name": display.name,
-                "problem": display.resolved if event.get("status") == "RESOLVED" else display.problem,
-                "host": self.host,
-            }
-            refreshed_id = self._pending_id(refreshed)
-            if refreshed_id != event_id:
-                pending.pop(event_id, None)
-            pending[refreshed_id] = refreshed
+        matching = [
+            (event_id, event)
+            for event_id, event in pending.items()
+            if event.get("key") == key
+        ]
+        if not matching:
+            return
+
+        statuses = {event.get("status") for _, event in matching}
+        selected: dict[str, Any] | None
+        if alert_active:
+            preferred = "NEW" if "NEW" in statuses else "REMINDER"
+            selected = next(
+                (event for _, event in matching if event.get("status") == preferred),
+                None,
+            )
+        else:
+            selected = next(
+                (event for _, event in matching if event.get("status") == "RESOLVED"),
+                None,
+            )
+
+        for event_id, _ in matching:
+            pending.pop(event_id, None)
+        if selected is None:
+            return
+        refreshed = {
+            **selected,
+            "priority": display.priority,
+            "name": display.name,
+            "problem": display.resolved if selected.get("status") == "RESOLVED" else display.problem,
+            "host": self.host,
+        }
+        pending[self._pending_id(refreshed)] = refreshed
+
+    def _chunks(
+        self,
+        selected: list[tuple[str, dict[str, Any]]],
+        formatter: Callable[[Iterable[dict[str, Any]]], str],
+    ) -> list[list[tuple[str, dict[str, Any]]]]:
+        chunks: list[list[tuple[str, dict[str, Any]]]] = []
+        current: list[tuple[str, dict[str, Any]]] = []
+        for item in selected:
+            candidate = [*current, item]
+            candidate_text = formatter(event for _, event in candidate)
+            exceeds_limit = (
+                len(candidate) > self.max_items_per_message
+                or len(candidate_text) > TELEGRAM_MESSAGE_LIMIT
+            )
+            if exceeds_limit and not current:
+                raise ValueError("Notification event exceeds Telegram message limit")
+            if exceeds_limit:
+                chunks.append(current)
+                current = [item]
+                if len(formatter([item[1]])) > TELEGRAM_MESSAGE_LIMIT:
+                    raise ValueError("Notification event exceeds Telegram message limit")
+            else:
+                current = candidate
+        if current:
+            chunks.append(current)
+        return chunks
 
     def process(self, state: dict[str, Any], results: Iterable[Any]) -> None:
         checks = state.setdefault("checks", {})
         current_keys: set[str] = set()
-        config_cycles = {"transient": 3, "sampled": 2, "durable": 1}
+        config_cycles = {
+            "transient": self.network_failure_confirmation_cycles,
+            "sampled": self.default_failure_confirmation_cycles,
+            "durable": 1,
+        }
 
         for result in results:
             key = str(result.key)
             current_keys.add(key)
             previous = checks.get(key, {})
+            notifications_suppressed = any(
+                key.startswith(prefix) for prefix in self.suppressed_key_prefixes
+            )
             display = self.registry.display(
                 key,
                 str(result.summary),
                 str(getattr(result, "notification_code", "") or ""),
                 getattr(result, "notification_context", None),
+            )
+            notification_code = str(
+                getattr(result, "notification_code", "") or ""
             )
             previous_severity = previous.get("severity", "ok")
             last_notification = float(previous.get("last_notification", 0) or 0)
@@ -342,25 +441,32 @@ class NotificationEngine:
                 failure_streak = 0
                 if alert_active:
                     recovery_streak += 1
-                    if recovery_streak >= 2:
-                        self._queue(
-                            state,
-                            {
-                                "key": key,
-                                "priority": int(previous.get("priority", display.priority)),
-                                "status": "RESOLVED",
-                                "name": str(previous.get("name", display.name)),
-                                "problem": str(previous.get("resolved", display.resolved)),
-                                "host": self.host,
-                            },
-                        )
+                    if recovery_streak >= self.recovery_confirmation_cycles:
+                        if (
+                            not notifications_suppressed
+                            and key not in self.suppressed_recovery_keys
+                        ):
+                            self._queue(
+                                state,
+                                {
+                                    "key": key,
+                                    "priority": int(previous.get("priority", display.priority)),
+                                    "status": "RESOLVED",
+                                    "name": str(previous.get("name", display.name)),
+                                    "problem": str(previous.get("resolved", display.resolved)),
+                                    "host": self.host,
+                                },
+                            )
                         alert_active = False
                         recovery_streak = 0
                 else:
                     recovery_streak = 0
             else:
                 recovery_streak = 0
-                if not alert_active:
+                if notifications_suppressed:
+                    alert_active = False
+                    failure_streak = min(required, failure_streak + 1)
+                elif not alert_active:
                     failure_streak += 1
                     if failure_streak >= required:
                         alert_active = True
@@ -378,6 +484,28 @@ class NotificationEngine:
                         )
                 else:
                     failure_streak = 0
+                    severity_increased = (
+                        SEVERITY_RANK.get(severity, 0)
+                        > SEVERITY_RANK.get(str(previous_severity), 0)
+                    )
+                    previous_code = previous.get("notification_code")
+                    code_changed = bool(
+                        previous_code
+                        and notification_code
+                        and previous_code != notification_code
+                    )
+                    if severity_increased or code_changed:
+                        self._queue(
+                            state,
+                            {
+                                "key": key,
+                                "priority": display.priority,
+                                "status": "REMINDER",
+                                "name": display.name,
+                                "problem": display.problem,
+                                "host": self.host,
+                            },
+                        )
 
             checks[key] = {
                 **previous,
@@ -387,6 +515,7 @@ class NotificationEngine:
                 "summary": _clean(result.summary, 300),
                 "incident_id": incident,
                 "notification_class": classification,
+                "notification_code": notification_code,
                 "alert_active": alert_active,
                 "failure_streak": failure_streak,
                 "recovery_streak": recovery_streak,
@@ -395,7 +524,12 @@ class NotificationEngine:
                 "problem": display.problem,
                 "resolved": display.resolved,
             }
-            self._refresh_pending(state, key=key, display=display)
+            self._refresh_pending(
+                state,
+                key=key,
+                display=display,
+                alert_active=alert_active,
+            )
 
         for key in list(checks):
             if key not in current_keys and self.now - float(checks[key].get("last_seen", 0)) > 86400:
@@ -405,7 +539,7 @@ class NotificationEngine:
         pending_new_keys = {
             event["key"] for event in pending.values() if event.get("status") == "NEW"
         }
-        reminders = {1: 900, 2: 21600}
+        reminders = {1: 900, 2: self.medium_reminder_seconds}
         for key, entry in checks.items():
             priority = int(entry.get("priority", 2))
             if (
@@ -441,28 +575,37 @@ class NotificationEngine:
                 ]
                 if not selected or not self.notify:
                     continue
-                try:
-                    self.sender.send(priority, format_message(status, [event for _, event in selected]))
-                except Exception as error:
+                formatter = lambda events, status=status: format_message(status, events)
+                for chunk in self._chunks(selected, formatter):
+                    try:
+                        self.sender.send(
+                            priority,
+                            formatter(event for _, event in chunk),
+                        )
+                    except Exception as error:
+                        print(
+                            f"NOTIFY_FAILED priority={PRIORITY_NAMES[priority]} status={status} error={type(error).__name__}",
+                            file=sys.stderr,
+                        )
+                        continue
+                    for event_id, event in chunk:
+                        if event["key"] in checks:
+                            checks[event["key"]]["last_notification"] = self.now
+                        pending.pop(event_id, None)
                     print(
-                        f"NOTIFY_FAILED priority={PRIORITY_NAMES[priority]} status={status} error={type(error).__name__}",
+                        f"NOTIFY_SENT priority={PRIORITY_NAMES[priority]} status={status} count={len(chunk)}",
                         file=sys.stderr,
                     )
-                    continue
-                for event_id, event in selected:
-                    if event["key"] in checks:
-                        checks[event["key"]]["last_notification"] = self.now
-                    pending.pop(event_id, None)
-                print(
-                    f"NOTIFY_SENT priority={PRIORITY_NAMES[priority]} status={status} count={len(selected)}",
-                    file=sys.stderr,
-                )
 
     def _deliver_low(self, state: dict[str, Any], checks: dict[str, Any]) -> None:
         local = datetime.fromtimestamp(self.now, ZoneInfo("Europe/Warsaw"))
         today = local.date().isoformat()
         if local.hour < 8 or state.get("last_low_digest_date") == today:
             return
+        if state.get("low_digest_partial_date") != today:
+            state.pop("low_digest_partial_date", None)
+            state.pop("low_digest_sent_keys", None)
+        sent_keys = set(state.get("low_digest_sent_keys", []))
         pending = state.setdefault("pending_notifications", {})
         selected = [
             (event_id, event)
@@ -471,7 +614,12 @@ class NotificationEngine:
         ]
         selected_keys = {event["key"] for _, event in selected}
         for key, entry in checks.items():
-            if int(entry.get("priority", 2)) != 3 or not entry.get("alert_active") or key in selected_keys:
+            if (
+                int(entry.get("priority", 2)) != 3
+                or not entry.get("alert_active")
+                or key in selected_keys
+                or key in sent_keys
+            ):
                 continue
             event = {
                 "key": key,
@@ -491,17 +639,33 @@ class NotificationEngine:
             return
         if not self.notify:
             return
-        try:
-            self.sender.send(3, format_low_digest([event for _, event in selected]))
-        except Exception as error:
+        failed = False
+        for chunk in self._chunks(selected, format_low_digest):
+            try:
+                self.sender.send(
+                    3,
+                    format_low_digest(event for _, event in chunk),
+                )
+            except Exception as error:
+                failed = True
+                print(
+                    f"NOTIFY_FAILED priority=low status=digest error={type(error).__name__}",
+                    file=sys.stderr,
+                )
+                continue
+            for event_id, event in chunk:
+                if event["key"] in checks:
+                    checks[event["key"]]["last_notification"] = self.now
+                sent_keys.add(event["key"])
+                pending.pop(event_id, None)
             print(
-                f"NOTIFY_FAILED priority=low status=digest error={type(error).__name__}",
+                f"NOTIFY_SENT priority=low status=digest count={len(chunk)}",
                 file=sys.stderr,
             )
-            return
-        for event_id, event in selected:
-            if event["key"] in checks:
-                checks[event["key"]]["last_notification"] = self.now
-            pending.pop(event_id, None)
-        state["last_low_digest_date"] = today
-        print(f"NOTIFY_SENT priority=low status=digest count={len(selected)}", file=sys.stderr)
+        if not failed:
+            state["last_low_digest_date"] = today
+            state.pop("low_digest_partial_date", None)
+            state.pop("low_digest_sent_keys", None)
+        else:
+            state["low_digest_partial_date"] = today
+            state["low_digest_sent_keys"] = sorted(sent_keys)

@@ -41,6 +41,12 @@ The devbox profile has one bounded read-only dead-man probe for GP. It executes
 a fixed SSH `systemctl show gp-monitor.service` command and is classified as a
 network observation, so a new alert requires three consecutive failed cycles.
 
+Timer-backed oneshot services keep their last completed result while a new
+invocation is active. A running invocation is not recovery evidence; only a
+completed healthy result can advance the two-cycle recovery confirmation.
+Filesystem discovery on devbox isolates inaccessible ephemeral mounts so one
+short-lived BuildKit mount cannot abort the remaining checks.
+
 Before a rollout, copy the profile, unit, environment file, installed code and
 state into a private timestamped rollback directory. Run a shadow cycle with
 both `--no-notify` and a private `--state-file`; `--no-notify` alone is not
@@ -58,3 +64,12 @@ Service name : problem : devbox|gp
 
 Tracked configuration contains only the environment variable names. Bot token
 and chat IDs remain in the protected runtime environment files.
+
+Pending delivery is coalesced to the current lifecycle state of each check, so
+an undelivered transition cannot later produce contradictory `NEW` and
+`RESOLVED` lines. Severity escalation and a stable notification-code change
+produce an immediate `REMINDER`. Messages are split at the configured item
+limit and Telegram's 4096-character limit; successful chunks are not retried
+when another chunk fails. The GP profile controls failure/recovery confirmation,
+the MEDIUM reminder interval, recovery suppression and chunk size. LOW remains
+a daily digest after 08:00 Europe/Warsaw.

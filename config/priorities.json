@@ -12,6 +12,44 @@
   },
   "assignments": [
     {
+      "patterns": ["daily-success:password-reset-primary"],
+      "priority": 3,
+      "name": "Password Reset primary",
+      "problem": "dzienny przebieg nie zakończył się pomyślnie",
+      "resolved": "dzienny przebieg ponownie zakończył się pomyślnie"
+    },
+    {
+      "patterns": ["daily-success:password-reset-canva1"],
+      "priority": 3,
+      "name": "Password Reset canva1",
+      "problem": "dzienny przebieg nie zakończył się pomyślnie",
+      "resolved": "dzienny przebieg ponownie zakończył się pomyślnie"
+    },
+    {
+      "patterns": ["daily-success:password-reset-canva2"],
+      "priority": 3,
+      "name": "Password Reset canva2",
+      "problem": "dzienny przebieg nie zakończył się pomyślnie",
+      "resolved": "dzienny przebieg ponownie zakończył się pomyślnie"
+    },
+    {
+      "patterns": ["daily-success:password-reset-canva3"],
+      "priority": 3,
+      "name": "Password Reset canva3",
+      "problem": "dzienny przebieg nie zakończył się pomyślnie",
+      "resolved": "dzienny przebieg ponownie zakończył się pomyślnie"
+    },
+    {
+      "patterns": [
+        "user-timer:password-reset-orchestrator.timer",
+        "user-service:password-reset-orchestrator.service:result"
+      ],
+      "priority": 3,
+      "name": "Password Reset orchestrator",
+      "problem": "dzienny przebieg nie zakończył się pomyślnie",
+      "resolved": "dzienny przebieg ponownie zakończył się pomyślnie"
+    },
+    {
       "patterns": ["*password-reset*"],
       "priority": 3,
       "name": "Password Reset",
@@ -168,6 +206,48 @@
       "name": "Trustpilot Notifier",
       "problem": "połączenie nie działa prawidłowo",
       "resolved": "połączenie ponownie działa prawidłowo"
+    },
+    {
+      "patterns": ["external-heartbeat:online-compiler-production-schedule"],
+      "priority": 2,
+      "name": "Scheduler Online Compiler PROD",
+      "problem": "scheduler nie działa prawidłowo",
+      "resolved": "scheduler ponownie działa prawidłowo"
+    },
+    {
+      "patterns": ["online-compiler-environment:production"],
+      "priority": 2,
+      "name": "Środowisko Online Compiler PROD",
+      "problem": "środowisko nie działa prawidłowo",
+      "resolved": "środowisko ponownie działa prawidłowo"
+    },
+    {
+      "patterns": ["online-compiler-scheduler:production*"],
+      "priority": 2,
+      "name": "Stan schedulera Online Compiler PROD",
+      "problem": "stan schedulera nie jest aktualny",
+      "resolved": "stan schedulera ponownie jest aktualny"
+    },
+    {
+      "patterns": ["external-heartbeat:online-compiler-next-dev-hibernation"],
+      "priority": 2,
+      "name": "Scheduler Online Compiler Next Dev",
+      "problem": "scheduler nie działa prawidłowo",
+      "resolved": "scheduler ponownie działa prawidłowo"
+    },
+    {
+      "patterns": ["online-compiler-environment:next-dev"],
+      "priority": 2,
+      "name": "Środowisko Online Compiler Next Dev",
+      "problem": "środowisko nie działa prawidłowo",
+      "resolved": "środowisko ponownie działa prawidłowo"
+    },
+    {
+      "patterns": ["online-compiler-scheduler:next-dev*"],
+      "priority": 2,
+      "name": "Stan schedulera Online Compiler Next Dev",
+      "problem": "stan schedulera nie jest aktualny",
+      "resolved": "stan schedulera ponownie jest aktualny"
     },
     {
       "patterns": ["external-heartbeat:online-compiler-*", "online-compiler-environment:*", "online-compiler-scheduler:*"],
