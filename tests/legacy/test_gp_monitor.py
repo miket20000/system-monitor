@@ -1990,6 +1990,7 @@ class SystemTimerTests(unittest.TestCase):
                             "ExecMainExitTimestamp=",
                             "ActiveState=activating",
                             "SubState=start",
+                            "Type=oneshot",
                             "InvocationID=running-invocation",
                         ]
                     ),
@@ -2019,6 +2020,52 @@ class SystemTimerTests(unittest.TestCase):
                 for event in monitor.state.get("pending_notifications", {}).values()
             )
         )
+
+    def test_running_non_oneshot_system_service_is_healthy(self) -> None:
+        state_path = Path(__file__).with_name(".gp-monitor-test-state.json")
+        state_path.unlink(missing_ok=True)
+        self.addCleanup(state_path.unlink, missing_ok=True)
+        monitor = MODULE.Monitor(
+            {
+                "state_file": str(state_path),
+                "system_timers": [
+                    {
+                        "unit": "example.timer",
+                        "service": "example.service",
+                        "warning_hours": 1,
+                        "critical_hours": 2,
+                    }
+                ],
+            },
+            notify=False,
+        )
+
+        def fake_run_command(command, timeout=15):
+            if command == ["systemctl", "is-active", "example.timer"]:
+                return subprocess.CompletedProcess(command, 0, "active\n", "")
+            if command == ["systemctl", "is-enabled", "example.timer"]:
+                return subprocess.CompletedProcess(command, 0, "enabled\n", "")
+            if command[:3] == ["systemctl", "show", "example.service"]:
+                return subprocess.CompletedProcess(
+                    command,
+                    0,
+                    "Result=success\nExecMainStatus=0\nActiveState=active\n"
+                    "SubState=running\nType=simple\n",
+                    "",
+                )
+            return subprocess.CompletedProcess(command, 1, "", "unexpected command")
+
+        monitor.run_command = fake_run_command
+        monitor.check_system_timers()
+
+        service_results = [
+            result
+            for result in monitor.results
+            if result.key == "system-service:example.service:result"
+        ]
+        self.assertEqual(len(service_results), 1)
+        self.assertEqual(service_results[0].severity, "ok")
+        self.assertIn("currently running", service_results[0].summary)
 
     def test_check_system_timer_uses_journal_when_systemd_timestamp_is_empty(self) -> None:
         state_path = Path(__file__).with_name(".gp-monitor-test-state.json")

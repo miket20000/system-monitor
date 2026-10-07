@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-07 07:49 CEST (Europe/Warsaw)
+Updated: 2026-10-07 08:12 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -49,6 +49,9 @@ scheduler-health signals.
   only a completed healthy result can advance recovery. Devbox filesystem
   discovery also isolates inaccessible ephemeral mounts instead of aborting the
   entire monitor cycle.
+- The neutral-running rule is limited to `Type=oneshot`. An active long-running
+  service such as `minecraft-bedrock.service` (`Type=simple`) remains healthy
+  even when its timer history contains an older interrupted invocation.
 - Password Reset checks and Online Compiler environment/scheduler signals have
   distinct user-facing names while retaining their technical incident keys.
 - Backup, verification, retention, restore-test and GP mail-archive jobs have
@@ -174,6 +177,17 @@ scheduler-health signals.
   rejected the non-package `tests` directory. Direct execution of all four test
   modules passed 217/217, and the canonical full `pytest` run passed. This was
   not an application failure.
+- The deployment preflight shadow exposed and retained one candidate regression:
+  the new active-service rule initially applied to `minecraft-bedrock.service`
+  as well as oneshots and would have queued a false alert from its older cached
+  interruption. The rule is now constrained by systemd `Type`; the corrected
+  candidate passes 219 tests and 48 subtests, and the repeat devbox shadow sees
+  the active `Type=simple` service as healthy.
+- PASS: fresh private-state shadow runs used both `--no-notify` and private
+  state copies on devbox and GP. Devbox returned 88 results. GP returned 318
+  results and truthfully detected the natural 08:10 mirror invocation that
+  completed with exit 3 after the installed monitor had sampled it as running.
+  Production state was not modified by either shadow run.
 
 ## Constraints
 
@@ -190,11 +204,12 @@ scheduler-health signals.
 ## START HERE
 
 1. Read this file and check all three repository worktrees before editing.
-   Treat the repository notification-correctness candidate as undeployed.
-2. Before any authorized deployment, verify the GP system timer and devbox user
-   timer remain active, read both installed hashes and inspect current v3 state
-   without clearing or replacing it. In particular, retain real active
-   incidents and let the candidate coalesce pending lifecycle entries naturally.
+   Treat the corrected notification-candidate as undeployed until the authorized
+   2026-10-07 rollout completes.
+2. Preflight verified both monitor timers active, both last services successful,
+   installed hashes older than the candidate, state v3 mode `0600`, and no
+   pending sends at the checkpoint. Preserve current state without clearing or
+   replacement; let the candidate coalesce later lifecycle entries naturally.
 3. Keep GP-local scheduler checks and the devbox three-cycle dead-man probe.
    Any shadow validation must use both `--no-notify` and a private state path;
    do not manufacture a failure to test notification delivery.

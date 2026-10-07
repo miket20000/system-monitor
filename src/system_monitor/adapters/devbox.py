@@ -614,11 +614,19 @@ class Monitor:
                     "--property=InactiveExitTimestamp",
                     "--property=ActiveState",
                     "--property=SubState",
+                    "--property=Type",
                     "--property=InvocationID",
                 ]
             )
             values = self.parse_properties(properties.stdout)
             running = values.get("ActiveState") in {"active", "activating"}
+            if running and values.get("Type") != "oneshot":
+                self.add(
+                    service_key,
+                    "ok",
+                    f"{service} is currently running",
+                )
+                continue
             outcomes: list[ServiceOutcome] = []
             exit_status = safe_status_value(values.get("ExecMainStatus", ""))
             current_completed_at = timestamp_epoch(

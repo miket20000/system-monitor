@@ -765,6 +765,7 @@ class UserTimerTests(MonitorTestCase):
                             stdout=(
                                 "Result=success\nExecMainStatus=0\n"
                                 f"ActiveState={active_state}\nSubState=running\n"
+                                "Type=oneshot\n"
                             ),
                         )
                     return self.base_run(command, timeout)
@@ -781,6 +782,35 @@ class UserTimerTests(MonitorTestCase):
                     ]["status"],
                     "failed",
                 )
+
+    def test_running_non_oneshot_service_is_healthy_despite_cached_failure(self):
+        monitor = self.timer_monitor()
+        monitor.state["timer_services"] = {
+            "user-service:job.service:result": {
+                "status": "interrupted",
+                "observed_at": monitor.now - 60,
+                "incident_id": "previous-interruption",
+                "result": "signal",
+                "exit": "15",
+            }
+        }
+
+        def run(command, timeout=15):
+            if "show" in command:
+                return completed(
+                    command,
+                    stdout=(
+                        "Result=success\nExecMainStatus=0\n"
+                        "ActiveState=active\nSubState=running\nType=simple\n"
+                    ),
+                )
+            return self.base_run(command, timeout)
+
+        monitor.run_command = run
+        monitor.check_user_timers()
+
+        self.assertEqual(monitor.results[-1].severity, "ok")
+        self.assertIn("currently running", monitor.results[-1].summary)
 
     def test_failed_service_is_critical_with_invocation_id(self):
         monitor = self.timer_monitor()

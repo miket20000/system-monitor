@@ -1014,14 +1014,23 @@ class Monitor:
                     "--property=ExecMainExitTimestamp",
                     "--property=ActiveState",
                     "--property=SubState",
+                    "--property=Type",
                     "--property=InvocationID",
                 ]
             )
             values = self.parse_properties(properties.stdout)
             active_state = values.get("ActiveState", "")
             if active_state in {"active", "activating"}:
-                # A running oneshot has no completed outcome. Omitting this result
-                # preserves the last conclusive state without confirming recovery.
+                if values.get("Type") == "oneshot":
+                    # A running oneshot has no completed outcome. Omitting this
+                    # result preserves the last conclusive state without recovery.
+                    continue
+                self.add(
+                    f"system-service:{service}:result",
+                    "ok",
+                    f"{service} is currently running",
+                    notification_class="durable",
+                )
                 continue
 
             result = values.get("Result", "")
