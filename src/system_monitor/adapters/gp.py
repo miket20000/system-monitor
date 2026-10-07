@@ -368,7 +368,9 @@ class Monitor:
         self,
         timer: str,
         service: str,
+        schedule_status: str,
         cycle_warning_seconds: int,
+        transition_cycle_warning_seconds: int,
         cycle_overdue_seconds: int,
     ) -> SchedulerUnitObservation:
         active = self.run_command(["systemctl", "is-active", timer])
@@ -404,7 +406,12 @@ class Monitor:
                 return SchedulerUnitObservation(False, "STATE_UNVERIFIED", "STALE")
             if self.now - started_at > cycle_overdue_seconds:
                 return SchedulerUnitObservation(False, "CYCLE_OVERDUE", "CYCLE_OVERDUE")
-            if self.now - started_at > cycle_warning_seconds:
+            warning_seconds = (
+                transition_cycle_warning_seconds
+                if schedule_status in {"STARTING", "STOPPING"}
+                else cycle_warning_seconds
+            )
+            if self.now - started_at > warning_seconds:
                 return SchedulerUnitObservation(True, "NONE", "CYCLE_SLOW")
             return SchedulerUnitObservation(True, "NONE", "IN_PROGRESS")
         return SchedulerUnitObservation(True, "NONE", "IDLE")
@@ -509,7 +516,12 @@ class Monitor:
             try:
                 unit = self._scheduler_unit_state(
                     check["timer_unit"], check["service_unit"],
+                    str(schedule_status),
                     int(check.get("cycle_warning_seconds", 300)),
+                    int(check.get(
+                        "transition_cycle_warning_seconds",
+                        check.get("cycle_warning_seconds", 300),
+                    )),
                     int(check.get("cycle_overdue_seconds", 1860)),
                 )
             except (OSError, subprocess.TimeoutExpired, ValueError, TypeError):
@@ -526,7 +538,13 @@ class Monitor:
                 freshness_state = "IN_PROGRESS"
             elif unit.cycle_state == "CYCLE_SLOW":
                 freshness = "warning"
-                freshness_summary = "Online Compiler scheduler cycle is slower than expected"
+                freshness_summary = (
+                    "Online Compiler scheduler opening is slower than expected"
+                    if schedule_status == "STARTING"
+                    else "Online Compiler scheduler closing is slower than expected"
+                    if schedule_status == "STOPPING"
+                    else "Online Compiler scheduler cycle is slower than expected"
+                )
                 freshness_state = "CYCLE_SLOW"
             elif unit.cycle_state == "CYCLE_OVERDUE":
                 freshness = "critical"
@@ -548,7 +566,13 @@ class Monitor:
                 freshness_summary, freshness_state,
                 notification_class="durable",
                 notification_code=(
-                    "ONLINE_COMPILER_CYCLE_SLOW"
+                    "ONLINE_COMPILER_STARTING_SLOW"
+                    if freshness_state == "CYCLE_SLOW"
+                    and schedule_status == "STARTING"
+                    else "ONLINE_COMPILER_STOPPING_SLOW"
+                    if freshness_state == "CYCLE_SLOW"
+                    and schedule_status == "STOPPING"
+                    else "ONLINE_COMPILER_CYCLE_SLOW"
                     if freshness_state == "CYCLE_SLOW"
                     else "ONLINE_COMPILER_CYCLE_OVERDUE"
                     if freshness_state == "CYCLE_OVERDUE"

@@ -118,6 +118,7 @@
       "freshness_warning_seconds": 600,
       "freshness_critical_seconds": 900,
       "cycle_warning_seconds": 300,
+      "transition_cycle_warning_seconds": 900,
       "cycle_overdue_seconds": 1860
     },
     {
@@ -134,6 +135,7 @@
       "freshness_warning_seconds": 1200,
       "freshness_critical_seconds": 2100,
       "cycle_warning_seconds": 300,
+      "transition_cycle_warning_seconds": 900,
       "cycle_overdue_seconds": 1860,
       "idle_threshold_seconds": 3600,
       "idle_grace_seconds": 900

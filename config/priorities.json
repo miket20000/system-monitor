@@ -6,6 +6,8 @@
     "ONLINE_COMPILER_SCHEDULER_DEGRADED": "scheduler ma stan {reasonCode}; ostatni stan środowiska: {environmentStatus}",
     "ONLINE_COMPILER_STATE_STALE": "brak świeżego stanu schedulera",
     "ONLINE_COMPILER_CYCLE_SLOW": "cykl schedulera trwa dłużej niż oczekiwano",
+    "ONLINE_COMPILER_STARTING_SLOW": "otwieranie środowiska trwa ponad 15 minut; scheduler nadal działa",
+    "ONLINE_COMPILER_STOPPING_SLOW": "zamykanie środowiska trwa ponad 15 minut; scheduler nadal działa",
     "ONLINE_COMPILER_CYCLE_OVERDUE": "cykl schedulera przekroczył limit czasu",
     "ONLINE_COMPILER_IDLE_OVERDUE": "środowisko ACTIVE przez {idleSeconds}s przy limicie {idleThresholdSeconds}s",
     "GP_MONITOR_DEAD_MAN": "brak świeżego potwierdzenia pracy monitora GP"

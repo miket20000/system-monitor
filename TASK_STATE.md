@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-07 15:07 CEST (Europe/Warsaw)
+Updated: 2026-10-07 16:00 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -16,9 +16,10 @@ scheduler-health signals.
 - GP profile code now reads the local PROD and Next Dev system units and state
   files. It reports environment status, scheduler health/reason and cycle
   freshness independently; ACTIVE past the configured idle limit has a
-  separate incident key. An active scheduler cycle is `IN_PROGRESS` through
-  300 seconds, `CYCLE_SLOW` warning through 1860 seconds and then critical
-  `CYCLE_OVERDUE`. An idle PROD scheduler warns at 600 seconds and becomes
+  separate incident key. The source candidate keeps the five-minute warning
+  for steady `OPEN`/`CLOSED` cycles, uses a 15-minute warning for expected
+  `STARTING`/`STOPPING` convergence and retains critical `CYCLE_OVERDUE` after
+  1860 seconds. An idle PROD scheduler warns at 600 seconds and becomes
   critical at 900 seconds, matching the five-minute scheduler cadence.
 - Existing Online Compiler incident keys remain unchanged, so deployment over
   current state will not replay `[NEW]`. New keys are limited to stale state
@@ -68,6 +69,11 @@ scheduler-health signals.
 - GP Monitor runs at minutes `01/06/11/...`, one minute after the network-disk
   mirror's `00/05/10/...` cadence. This preserves the five-minute interval and
   samples the mirror's completed result instead of its transient running state.
+- The repository candidate adds stable `ONLINE_COMPILER_STARTING_SLOW` and
+  `ONLINE_COMPILER_STOPPING_SLOW` message codes. A transition warning remains
+  durable, so its first observation past 900 seconds sends `[NEW]` immediately;
+  recovery still requires two healthy observations. The installed runtimes and
+  production state are unchanged pending a separately authorized deployment.
 - Password Reset retains separate technical account/orchestrator checks, while
   deployed commit `04957e4` aggregates their LOW notification lifecycle under
   one `Password Reset` group. Partial member recovery stays silent and the
@@ -320,6 +326,11 @@ scheduler-health signals.
   package. The corrected `PYTHONPATH=src pytest -q` passed 223 tests and 48
   subtests before the concurrent baseline repair added its final regression;
   that repair separately passed 224 tests and 48 subtests.
+- PASS: the phase-aware scheduler candidate passed 227 tests and 50 subtests in
+  host context. Its targeted final rerun passed 87 tests and 10 subtests; JSON,
+  bytecode and diff checks passed. The first sandbox full run retained 17 known
+  EROFS harness failures and also exposed two stale profile expectations; those
+  expectations were corrected before the clean host-context run.
 
 ## Constraints
 
@@ -337,7 +348,8 @@ scheduler-health signals.
 
 1. Read this file and check all three repository worktrees before editing.
    Treat `231fd52` as deployed on both monitor runtimes and retain the historical
-   10:40 false-reminder failure from `f7bd091`; do not replay or delete it.
+   10:40 false-reminder failure from `f7bd091`; do not replay or delete it. The
+   phase-aware threshold candidate is source-only and not yet deployed.
 2. Preserve current state v3 without clearing or replacement. The corrected
    owner-requested LOW digest cleared all pending LOW events on 2026-10-07; do
    not replay it or reset `last_low_digest_date`.
@@ -345,9 +357,10 @@ scheduler-health signals.
    Any shadow validation must use both `--no-notify` and a private state path;
    do not manufacture a failure to test notification delivery.
 4. The first 24-hour five-minute-cadence PROD observation is complete and
-   passed. Keep the current 300/1860-second running-cycle and 600/900-second
-   idle thresholds; investigate repeated `CYCLE_SLOW` observations as real
-   latency without classifying them as scheduler failure.
+   passed. The source candidate keeps 300 seconds for steady cycles, uses 900
+   seconds for `STARTING`/`STOPPING`, retains 1860 seconds for overdue and keeps
+   the 600/900-second idle thresholds. Deploy only after fresh state readback
+   and explicit authorization; never classify `CYCLE_SLOW` as scheduler failure.
 5. Preserve installed entrypoints, state paths, environment permissions and
    the three-channel message contract. Keep GP Monitor one minute after the
    mirror cadence so completed mirror failures remain observable. Retain the

@@ -56,6 +56,7 @@ class LocalSchedulerTests(unittest.TestCase):
             "freshness_warning_seconds": 600 if name == "production" else 1200,
             "freshness_critical_seconds": 900 if name == "production" else 2100,
             "cycle_warning_seconds": 300,
+            "transition_cycle_warning_seconds": 900,
             "cycle_overdue_seconds": 1860,
         }
         self.write_json(
@@ -271,6 +272,93 @@ class LocalSchedulerTests(unittest.TestCase):
         )
         self.assertEqual(display.problem, "cykl schedulera trwa dłużej niż oczekiwano")
 
+    def test_starting_and_stopping_use_transition_threshold_and_specific_messages(self):
+        expected = {
+            "STARTING": (
+                "ONLINE_COMPILER_STARTING_SLOW",
+                "otwieranie środowiska trwa ponad 15 minut; scheduler nadal działa",
+            ),
+            "STOPPING": (
+                "ONLINE_COMPILER_STOPPING_SLOW",
+                "zamykanie środowiska trwa ponad 15 minut; scheduler nadal działa",
+            ),
+        }
+        registry = PriorityRegistry.load(ROOT / "config/priorities.json")
+        for status, (code, message) in expected.items():
+            with self.subTest(status=status):
+                check = self.base_check("production")
+                self.write_json(
+                    Path(check["schedule_path"]),
+                    {
+                        "schemaVersion": 1,
+                        "status": status,
+                        "updatedAt": "2026-10-05T10:00:00Z",
+                    },
+                )
+                monitor = self.monitor(check)
+
+                def running_systemd(command, timeout=15):
+                    if "is-active" in command:
+                        return completed(command, stdout="active\n")
+                    if "is-enabled" in command:
+                        return completed(command, stdout="enabled\n")
+                    return completed(
+                        command,
+                        stdout=(
+                            "ActiveState=activating\nResult=success\nExecMainStatus=0\n"
+                            "ExecMainStartTimestamp=2026-10-05T09:44:59+00:00\n"
+                        ),
+                    )
+
+                monitor.run_command = running_systemd
+                monitor.check_online_compiler_schedulers()
+                result = {
+                    item.key: item for item in monitor.results
+                }["online-compiler-scheduler:production:freshness"]
+                self.assertEqual(result.severity, "warning")
+                self.assertEqual(result.notification_code, code)
+                self.assertIn(
+                    "opening" if status == "STARTING" else "closing",
+                    result.summary,
+                )
+                self.assertEqual(
+                    registry.display(result.key, result.summary, code, {}).problem,
+                    message,
+                )
+
+    def test_starting_cycle_below_transition_threshold_stays_in_progress(self):
+        check = self.base_check("production")
+        self.write_json(
+            Path(check["schedule_path"]),
+            {
+                "schemaVersion": 1,
+                "status": "STARTING",
+                "updatedAt": "2026-10-05T10:00:00Z",
+            },
+        )
+        monitor = self.monitor(check)
+
+        def running_systemd(command, timeout=15):
+            if "is-active" in command:
+                return completed(command, stdout="active\n")
+            if "is-enabled" in command:
+                return completed(command, stdout="enabled\n")
+            return completed(
+                command,
+                stdout=(
+                    "ActiveState=activating\nResult=success\nExecMainStatus=0\n"
+                    "ExecMainStartTimestamp=2026-10-05T09:45:00+00:00\n"
+                ),
+            )
+
+        monitor.run_command = running_systemd
+        monitor.check_online_compiler_schedulers()
+        result = {
+            item.key: item for item in monitor.results
+        }["online-compiler-scheduler:production:freshness"]
+        self.assertEqual(result.severity, "ok")
+        self.assertEqual(result.details, "IN_PROGRESS")
+
     def test_running_cycle_past_deadline_is_overdue_not_merely_stale(self):
         check = self.base_check("production")
         monitor = self.monitor(check)
@@ -473,6 +561,27 @@ class DeadManTests(unittest.TestCase):
 
 
 class SchedulerNotificationTests(unittest.TestCase):
+    def test_transition_slow_alert_is_immediate(self):
+        registry = PriorityRegistry.load(ROOT / "config/priorities.json")
+        sender = Sender()
+        state = {"checks": {}, "pending_notifications": {}}
+        result = gp.Result(
+            "online-compiler-scheduler:production:freshness",
+            "warning",
+            "Online Compiler scheduler opening is slower than expected",
+            "CYCLE_SLOW",
+            notification_class="durable",
+            notification_code="ONLINE_COMPILER_STARTING_SLOW",
+        )
+
+        NotificationEngine(
+            registry, host="gp", now=1_800_000_000, notify=True, sender=sender,
+        ).process(state, [result])
+
+        self.assertEqual(len(sender.calls), 1)
+        self.assertIn("[NEW]", sender.calls[0][1])
+        self.assertIn("otwieranie środowiska trwa ponad 15 minut", sender.calls[0][1])
+
     def test_allowlisted_blocked_context_is_formatted_without_changing_key(self):
         registry = PriorityRegistry.load(ROOT / "config/priorities.json")
         display = registry.display(
@@ -552,6 +661,9 @@ class ProfileContractTests(unittest.TestCase):
         )
         for check in checks.values():
             self.assertTrue(check["schedule_path"].startswith("/var/lib/online-compiler-scheduler/"))
+            self.assertEqual(check["cycle_warning_seconds"], 300)
+            self.assertEqual(check["transition_cycle_warning_seconds"], 900)
+            self.assertEqual(check["cycle_overdue_seconds"], 1860)
 
     def test_devbox_dead_man_profile_is_bounded(self):
         profile = json.loads((ROOT / "profiles/devbox.json").read_text(encoding="utf-8"))
