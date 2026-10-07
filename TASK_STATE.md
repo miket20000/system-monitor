@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-07 08:12 CEST (Europe/Warsaw)
+Updated: 2026-10-07 08:32 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -38,7 +38,7 @@ scheduler-health signals.
   period. A changing durable evidence ID updates the stored evidence but does
   not reopen `[NEW]`; another `[NEW]` is possible only after two healthy cycles
   confirm recovery. Pending events are refreshed from the current registry.
-- The repository now contains an undeployed notification-correctness candidate.
+- The notification-correctness candidate is deployed on devbox and GP.
   Pending delivery is coalesced to one current event per check, severity or
   stable message-code escalation emits an immediate `REMINDER`, and Telegram
   payloads are split by both item count and 4096-character length with retry
@@ -57,11 +57,10 @@ scheduler-health signals.
 - Backup, verification, retention, restore-test and GP mail-archive jobs have
   explicit LOW display names, including `Backup Devbox`, `Backup GP` and
   `Archiwizacja poczty GP`.
-- GP-local scheduler checks are deployed in the root system runtime, and the
-  three-cycle GP dead-man is deployed in the devbox user runtime. Production
-  state v3 was preserved on both hosts and both timers were active at the last
-  readback. The notification-correctness candidate described above is newer
-  than both installed runtimes and has not been deployed.
+- GP-local scheduler checks run in the root system runtime, and the three-cycle
+  GP dead-man runs in the devbox user runtime. Production state v3 was preserved
+  on both hosts, installed package/configuration hashes match the repository,
+  and both timers were active at the final readback.
 - Private-state shadow runs used both `--no-notify` and a private state copy.
   GP returned all configured results with all seven Online Compiler checks OK;
   devbox returned `remote-dead-man:gp-monitor=OK`.
@@ -78,6 +77,10 @@ scheduler-health signals.
   `/home/miket/.local/state/system-monitor-rollbacks/20261005T1450-gp-deadman`
   on devbox and root-only
   `/root/system-monitor-rollbacks/20261005T1425-gp-scheduler-cutover` on GP.
+- Notification-correctness rollout snapshots are at
+  `/home/miket/.local/state/system-monitor-rollbacks/20261007T081358+0200/devbox-notification-correctness`
+  and root-only
+  `/root/system-monitor-rollbacks/20261007T081358+0200/gp-notification-correctness`.
 
 ## Validation
 
@@ -188,6 +191,23 @@ scheduler-health signals.
   results and truthfully detected the natural 08:10 mirror invocation that
   completed with exit 3 after the installed monitor had sampled it as running.
   Production state was not modified by either shadow run.
+- PASS: the 2026-10-07 rollout deployed commit `9a547e1` devbox-first without
+  clearing or replacing production state. Devbox natural 08:15 and 08:20 cycles
+  and GP natural 08:25 and 08:30 cycles completed with exit 0. Both timers remain
+  enabled/active; source/runtime package, wrapper, profile and active priority
+  registry hashes match. State remains v3 mode `0600`; Telegram environment
+  permissions remain `0600` on devbox and `root:www-data 0640` on GP.
+- PASS: devbox dead-man remained OK at 08:20, 08:25 and 08:30 with no active
+  incident or pending event. GP had no pending notification after two cycles.
+  The earlier natural mirror failure was followed by a successful natural run
+  before rollout, so it was healthy at final readback without a synthetic event.
+- PASS: installed GP unit verification was clean. Devbox unit verification
+  exited 0 with one unrelated existing `spice-vdagent.service` warning about an
+  ignored `StandardError` key in `[Install]`.
+- BLOCKED (observation helper only): the first shell counter for devbox natural
+  cycles treated an empty `rg -c` result as an integer. It was stopped and the
+  corrected direct journal counter confirmed both cycles; monitor execution and
+  state were unaffected.
 
 ## Constraints
 
@@ -204,12 +224,10 @@ scheduler-health signals.
 ## START HERE
 
 1. Read this file and check all three repository worktrees before editing.
-   Treat the corrected notification-candidate as undeployed until the authorized
-   2026-10-07 rollout completes.
-2. Preflight verified both monitor timers active, both last services successful,
-   installed hashes older than the candidate, state v3 mode `0600`, and no
-   pending sends at the checkpoint. Preserve current state without clearing or
-   replacement; let the candidate coalesce later lifecycle entries naturally.
+   Treat commit `9a547e1` as deployed on both monitor runtimes.
+2. Preserve current state v3 without clearing or replacement. Devbox retains one
+   LOW `RESOLVED` event for the pre-rollout Minecraft lifecycle; it is expected
+   to leave through the normal daily LOW digest rather than forced delivery.
 3. Keep GP-local scheduler checks and the devbox three-cycle dead-man probe.
    Any shadow validation must use both `--no-notify` and a private state path;
    do not manufacture a failure to test notification delivery.
