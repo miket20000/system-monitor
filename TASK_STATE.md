@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-07 08:32 CEST (Europe/Warsaw)
+Updated: 2026-10-07 09:39 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -208,6 +208,15 @@ scheduler-health signals.
   cycles treated an empty `rg -c` result as an integer. It was stopped and the
   corrected direct journal counter confirmed both cycles; monitor execution and
   state were unaffected.
+- PASS: the owner-requested corrected LOW daily report was sent at 09:38 CEST
+  after a read-only preview confirmed six technical keys, six distinct visible
+  rows and no contradictory lifecycle statuses. It used the deployed
+  coalescence and the specific Password Reset names (`canva1`, `canva2`,
+  `canva3`, `orchestrator`). Telegram returned success for one six-item digest;
+  production state records `last_low_digest_date=2026-10-07`, zero pending LOW
+  events and mode `0600`. The devbox timer remained active. The pre-send state
+  snapshot is at
+  `/home/miket/.local/state/system-monitor-rollbacks/20261007T093839+0200/manual-low-digest`.
 
 ## Constraints
 
@@ -225,9 +234,9 @@ scheduler-health signals.
 
 1. Read this file and check all three repository worktrees before editing.
    Treat commit `9a547e1` as deployed on both monitor runtimes.
-2. Preserve current state v3 without clearing or replacement. Devbox retains one
-   LOW `RESOLVED` event for the pre-rollout Minecraft lifecycle; it is expected
-   to leave through the normal daily LOW digest rather than forced delivery.
+2. Preserve current state v3 without clearing or replacement. The corrected
+   owner-requested LOW digest cleared all pending LOW events on 2026-10-07; do
+   not replay it or reset `last_low_digest_date`.
 3. Keep GP-local scheduler checks and the devbox three-cycle dead-man probe.
    Any shadow validation must use both `--no-notify` and a private state path;
    do not manufacture a failure to test notification delivery.
