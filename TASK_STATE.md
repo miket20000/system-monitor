@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-06 07:37 CEST (Europe/Warsaw)
+Updated: 2026-10-07 07:40 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -127,6 +127,22 @@ scheduler-health signals.
   closed the controlled alert through the standard recovery path and emitted
   one `[RESOLVED]`. PROD freshness, environment and scheduler keys are now OK
   with no active incident or pending notification.
+- The exact post-deployment window `[2026-10-06 07:35, 2026-10-07 07:35)`
+  CEST passed. GP Monitor completed 288/288 natural cycles; PROD freshness was
+  287 `IN_PROGRESS`, one truthful `CYCLE_SLOW`, zero `STALE` and zero
+  `CYCLE_OVERDUE`. Public availability and the legacy scheduler signal were
+  288/288 healthy. Environment observations were 191 CLOSED, 94 OPEN, two
+  STARTING and one STOPPING, all correctly OK.
+- PROD produced three notification events in that window: the 07:40 resolution
+  of the controlled pre-window deployment incident, then `CYCLE_SLOW`
+  `[NEW]` at 14:10 and `[RESOLVED]` at 14:20 for the real 729.157-second
+  `PASS_OPEN` cycle. The 562.794-second `PASS_CLOSED` completed before the
+  next warning sample. There were no false-positive PROD alerts, availability
+  failures or active/pending PROD incidents at the end of the window.
+- A separate, out-of-scope monitor issue remains: `dysk-sieciowy-mirror`
+  emitted false recovery events when observation coincided with an active
+  service that later exited 3. It does not affect the Online Compiler result
+  and was not changed in this task.
 
 ## Constraints
 
@@ -146,10 +162,10 @@ scheduler-health signals.
 3. Keep GP-local scheduler checks and the devbox three-cycle dead-man probe.
    Any shadow validation must use both `--no-notify` and a private state path;
    do not manufacture a failure to test notification delivery.
-4. Observe at least 24 hours of natural five-minute PROD cycles, including the
-   next OPEN boundary. Confirm `IN_PROGRESS` does not flap to stale, a cycle
-   over five minutes remains visible as `CYCLE_SLOW`, and missed idle slots
-   retain the 600/900-second thresholds.
+4. The first 24-hour five-minute-cadence PROD observation is complete and
+   passed. Keep the current 300/1860-second running-cycle and 600/900-second
+   idle thresholds; investigate repeated `CYCLE_SLOW` observations as real
+   latency without classifying them as scheduler failure.
 5. Preserve installed entrypoints, state paths, environment permissions and
    the three-channel message contract. Investigate application incidents in
    their owning repository and never clear monitor state to force recovery.
