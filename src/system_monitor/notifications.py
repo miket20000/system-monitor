@@ -549,7 +549,9 @@ class NotificationEngine:
             severity = str(result.severity)
             notified_severity = str(previous.get("notified_severity", ""))
             notified_code = str(previous.get("notified_code", ""))
-            if not notified_severity:
+            if not notified_severity or (
+                alert_active and notified_severity == "ok"
+            ):
                 if alert_active and str(previous_severity) != "ok":
                     notified_severity = str(previous_severity)
                     notified_code = str(previous.get("notification_code", ""))

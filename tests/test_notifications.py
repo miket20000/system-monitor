@@ -436,6 +436,35 @@ class NotificationEngineTests(unittest.TestCase):
             self.state["checks"][key]["notified_severity"], "critical"
         )
 
+    def test_active_v3_stale_ok_baseline_migrates_without_reminder(self):
+        key = "online-compiler-scheduler:next-dev:freshness"
+        stale = result(
+            key, "critical", "stale",
+            incident_id="scheduler-next-dev", notification_class="durable",
+            notification_code="ONLINE_COMPILER_STATE_STALE",
+        )
+        self.cycle(stale)
+        self.sender.calls.clear()
+        self.cycle(
+            result(
+                key, "ok", "in progress",
+                incident_id="scheduler-next-dev", notification_class="durable",
+            )
+        )
+        self.state["checks"][key]["notified_severity"] = "ok"
+        self.state["checks"][key]["notified_code"] = ""
+
+        self.cycle(stale)
+
+        self.assertEqual(self.sender.calls, [])
+        self.assertEqual(
+            self.state["checks"][key]["notified_severity"], "critical"
+        )
+        self.assertEqual(
+            self.state["checks"][key]["notified_code"],
+            "ONLINE_COMPILER_STATE_STALE",
+        )
+
     def test_true_escalation_survives_one_unconfirmed_ok(self):
         key = "filesystem:space:/"
         self.cycle(

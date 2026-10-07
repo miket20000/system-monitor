@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-07 10:12 CEST (Europe/Warsaw)
+Updated: 2026-10-07 10:42 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -44,7 +44,9 @@ scheduler-health signals.
   escalation and emit an immediate false `REMINDER`; genuine severity or code
   escalation still does. Existing active state v3 is initialized from its last
   conclusive severity, or from the current unhealthy sample after one pending
-  recovery observation, without notification replay.
+  recovery observation, without notification replay. An inherited active-state
+  baseline of `ok` is also treated as invalid migration input and initialized
+  from the conclusive incident rather than emitted as an escalation.
 - The notification-correctness candidate is deployed on devbox and GP.
   Pending delivery is coalesced to one current event per check, severity or
   stable message-code escalation emits an immediate `REMINDER`, and Telegram
@@ -240,11 +242,11 @@ scheduler-health signals.
   in-memory preview contained exactly one `Password Reset` reminder. The shadow
   used `--no-notify` and did not modify production state.
 - PASS: the notification-baseline fix on top of Password Reset grouping passes
-  223 tests and 48 subtests. Regression coverage proves that `CRITICAL ->` one
+  224 tests and 48 subtests. Regression coverage proves that `CRITICAL ->` one
   unconfirmed `OK -> CRITICAL` remains silent, active v3 migration does not
   replay a reminder, and a real `WARNING ->` one unconfirmed `OK -> CRITICAL`
-  escalation still sends an immediate reminder. This combined source candidate
-  is not deployed.
+  escalation still sends an immediate reminder. It also covers a historical
+  active state carrying the inconsistent baseline `notified_severity=ok`.
 - PASS: commit `04957e4` was deployed devbox-first without clearing or replacing
   production state. Devbox natural 09:55 and 10:00 cycles and GP natural 10:05
   and 10:10 cycles completed with exit 0. The devbox group initialized as active
@@ -258,6 +260,14 @@ scheduler-health signals.
   authorization gate. The 10:05 and 10:10 GP cycles emitted MEDIUM reminders
   for existing non-Password-Reset incidents; they are outside this grouping
   change and no synthetic incident was created.
+- FAIL: the first GP natural cycle after deploying `f7bd091` at 10:40 migrated
+  the active Next Dev freshness check correctly, but sent one false MEDIUM
+  reminder for the separate active Next Dev scheduler-health check. Its
+  preserved state contained an inherited `notified_severity=ok`; the original
+  migration handled an absent field but trusted this inconsistent value. No
+  state was cleared or replaced and no rollback was performed. The smallest
+  source repair now rejects `ok` as the baseline of an active incident and has
+  passed the complete 224-test suite; repeat staged rollout is pending.
 
 ## Constraints
 
@@ -274,8 +284,9 @@ scheduler-health signals.
 ## START HERE
 
 1. Read this file and check all three repository worktrees before editing.
-   Treat commit `04957e4` as deployed on both monitor runtimes. Treat source HEAD
-   `f7bd091` notification-baseline changes as a separate undeployed candidate.
+   Treat `f7bd091` as deployed on both monitor runtimes with the retained 10:40
+   false-reminder failure. The tested stale-`ok` migration repair must be
+   committed and deployed devbox-first before the rollout can pass.
 2. Preserve current state v3 without clearing or replacement. The corrected
    owner-requested LOW digest cleared all pending LOW events on 2026-10-07; do
    not replay it or reset `last_low_digest_date`.
