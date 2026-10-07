@@ -547,6 +547,19 @@ class NotificationEngine:
             classification = observation_class(result)
             required = config_cycles[classification]
             severity = str(result.severity)
+            notified_severity = str(previous.get("notified_severity", ""))
+            notified_code = str(previous.get("notified_code", ""))
+            if not notified_severity:
+                if alert_active and str(previous_severity) != "ok":
+                    notified_severity = str(previous_severity)
+                    notified_code = str(previous.get("notification_code", ""))
+                elif alert_active and severity != "ok":
+                    # Migrate an active v3 incident after one unconfirmed OK
+                    # observation without replaying an escalation notification.
+                    notified_severity = severity
+                    notified_code = notification_code
+                else:
+                    notified_severity = "ok"
 
             if severity == "ok":
                 failure_streak = 0
@@ -573,6 +586,8 @@ class NotificationEngine:
                             )
                         alert_active = False
                         recovery_streak = 0
+                        notified_severity = "ok"
+                        notified_code = ""
                 else:
                     recovery_streak = 0
             else:
@@ -585,6 +600,8 @@ class NotificationEngine:
                     if failure_streak >= required:
                         alert_active = True
                         failure_streak = 0
+                        notified_severity = severity
+                        notified_code = notification_code
                         self._queue(
                             state,
                             {
@@ -601,15 +618,16 @@ class NotificationEngine:
                     failure_streak = 0
                     severity_increased = (
                         SEVERITY_RANK.get(severity, 0)
-                        > SEVERITY_RANK.get(str(previous_severity), 0)
+                        > SEVERITY_RANK.get(notified_severity, 0)
                     )
-                    previous_code = previous.get("notification_code")
                     code_changed = bool(
-                        previous_code
+                        notified_code
                         and notification_code
-                        and previous_code != notification_code
+                        and notified_code != notification_code
                     )
                     if severity_increased or code_changed:
+                        notified_severity = severity
+                        notified_code = notification_code
                         self._queue(
                             state,
                             {
@@ -632,6 +650,8 @@ class NotificationEngine:
                 "incident_id": incident,
                 "notification_class": classification,
                 "notification_code": notification_code,
+                "notified_severity": notified_severity,
+                "notified_code": notified_code,
                 "alert_active": alert_active,
                 "failure_streak": failure_streak,
                 "recovery_streak": recovery_streak,

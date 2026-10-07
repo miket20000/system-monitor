@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-07 09:50 CEST (Europe/Warsaw)
+Updated: 2026-10-07 09:59 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -38,6 +38,13 @@ scheduler-health signals.
   period. A changing durable evidence ID updates the stored evidence but does
   not reopen `[NEW]`; another `[NEW]` is possible only after two healthy cycles
   confirm recovery. Pending events are refreshed from the current registry.
+- Active incidents now retain the last notified severity and stable message
+  code across an unconfirmed healthy observation. A single neutral/OK sample
+  therefore cannot make the next identical unhealthy sample look like an
+  escalation and emit an immediate false `REMINDER`; genuine severity or code
+  escalation still does. Existing active state v3 is initialized from its last
+  conclusive severity, or from the current unhealthy sample after one pending
+  recovery observation, without notification replay.
 - The notification-correctness candidate is deployed on devbox and GP.
   Pending delivery is coalesced to one current event per check, severity or
   stable message-code escalation emits an immediate `REMINDER`, and Telegram
@@ -227,6 +234,12 @@ scheduler-health signals.
   initialized the currently active group without replaying `NEW`; a forced
   in-memory preview contained exactly one `Password Reset` reminder. The shadow
   used `--no-notify` and did not modify production state.
+- PASS: the notification-baseline fix on top of Password Reset grouping passes
+  223 tests and 48 subtests. Regression coverage proves that `CRITICAL ->` one
+  unconfirmed `OK -> CRITICAL` remains silent, active v3 migration does not
+  replay a reminder, and a real `WARNING ->` one unconfirmed `OK -> CRITICAL`
+  escalation still sends an immediate reminder. This combined source candidate
+  is not deployed.
 
 ## Constraints
 
@@ -244,7 +257,7 @@ scheduler-health signals.
 
 1. Read this file and check all three repository worktrees before editing.
    Treat commit `9a547e1` as the deployed baseline and the Password Reset group
-   lifecycle change as an undeployed candidate.
+   lifecycle plus notification-baseline changes as an undeployed candidate.
 2. Preserve current state v3 without clearing or replacement. The corrected
    owner-requested LOW digest cleared all pending LOW events on 2026-10-07; do
    not replay it or reset `last_low_digest_date`.

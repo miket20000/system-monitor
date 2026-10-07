@@ -387,6 +387,80 @@ class NotificationEngineTests(unittest.TestCase):
         self.assertEqual(len(self.sender.calls), 1)
         self.assertTrue(self.sender.calls[0][1].startswith("[REMINDER]\n"))
 
+    def test_unconfirmed_ok_does_not_replay_critical_reminder(self):
+        key = "online-compiler-scheduler:next-dev:freshness"
+        stale = result(
+            key, "critical", "stale",
+            incident_id="scheduler-next-dev", notification_class="durable",
+            notification_code="ONLINE_COMPILER_STATE_STALE",
+        )
+        self.cycle(stale)
+        self.sender.calls.clear()
+
+        self.cycle(
+            result(
+                key, "ok", "in progress",
+                incident_id="scheduler-next-dev", notification_class="durable",
+            )
+        )
+        self.cycle(stale)
+
+        self.assertEqual(self.sender.calls, [])
+        self.assertTrue(self.state["checks"][key]["alert_active"])
+        self.assertEqual(
+            self.state["checks"][key]["notified_severity"], "critical"
+        )
+
+    def test_active_v3_state_migrates_without_replaying_reminder(self):
+        key = "online-compiler-scheduler:next-dev:freshness"
+        stale = result(
+            key, "critical", "stale",
+            incident_id="scheduler-next-dev", notification_class="durable",
+            notification_code="ONLINE_COMPILER_STATE_STALE",
+        )
+        self.cycle(stale)
+        self.sender.calls.clear()
+        self.cycle(
+            result(
+                key, "ok", "in progress",
+                incident_id="scheduler-next-dev", notification_class="durable",
+            )
+        )
+        self.state["checks"][key].pop("notified_severity")
+        self.state["checks"][key].pop("notified_code")
+
+        self.cycle(stale)
+
+        self.assertEqual(self.sender.calls, [])
+        self.assertEqual(
+            self.state["checks"][key]["notified_severity"], "critical"
+        )
+
+    def test_true_escalation_survives_one_unconfirmed_ok(self):
+        key = "filesystem:space:/"
+        self.cycle(
+            result(
+                key, "warning", "Disk usage 91%",
+                incident_id="disk-1", notification_class="durable",
+            )
+        )
+        self.sender.calls.clear()
+        self.cycle(
+            result(
+                key, "ok", "healthy",
+                incident_id="disk-1", notification_class="durable",
+            )
+        )
+        self.cycle(
+            result(
+                key, "critical", "Disk usage 96%",
+                incident_id="disk-1", notification_class="durable",
+            )
+        )
+
+        self.assertEqual(len(self.sender.calls), 1)
+        self.assertTrue(self.sender.calls[0][1].startswith("[REMINDER]\n"))
+
     def test_problem_code_change_sends_update_but_dynamic_context_does_not(self):
         key = "online-compiler-scheduler:production:freshness"
         self.cycle(
