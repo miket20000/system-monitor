@@ -63,6 +63,7 @@ class Display:
     name: str
     problem: str
     resolved: str
+    group: str = ""
 
 
 def _clean(value: object, limit: int = 180) -> str:
@@ -137,10 +138,17 @@ class PriorityRegistry:
         if self.default_priority not in PRIORITY_NAMES:
             raise ValueError("Invalid default priority")
         for rule in self.rules:
-            if int(rule["priority"]) not in PRIORITY_NAMES:
+            priority = int(rule["priority"])
+            if priority not in PRIORITY_NAMES:
                 raise ValueError("Invalid priority assignment")
             if not rule.get("patterns"):
                 raise ValueError("Priority assignment without patterns")
+            group = str(rule.get("group", ""))
+            if group and (
+                priority != 3
+                or re.fullmatch(r"[a-z0-9][a-z0-9-]{0,63}", group) is None
+            ):
+                raise ValueError("Invalid LOW notification group")
         if set(self.message_codes) != set(MESSAGE_CONTEXT_FIELDS):
             raise ValueError("Priority registry message code allowlist differs")
         for code, message in self.message_codes.items():
@@ -187,7 +195,8 @@ class PriorityRegistry:
                     else _clean(rule.get("problem") or _problem(summary))
                 )
                 resolved = _clean(rule.get("resolved") or _problem(summary, True))
-                return Display(int(rule["priority"]), name, problem, resolved)
+                group = _clean(rule.get("group", ""), 64)
+                return Display(int(rule["priority"]), name, problem, resolved, group)
         return Display(
             self.default_priority,
             _key_subject(key),
@@ -366,6 +375,7 @@ class NotificationEngine:
             "name": display.name,
             "problem": display.resolved if selected.get("status") == "RESOLVED" else display.problem,
             "host": self.host,
+            "group": display.group,
         }
         pending[self._pending_id(refreshed)] = refreshed
 
@@ -395,6 +405,107 @@ class NotificationEngine:
         if current:
             chunks.append(current)
         return chunks
+
+    def _reconcile_notification_groups(
+        self,
+        state: dict[str, Any],
+        checks: dict[str, Any],
+    ) -> None:
+        members: dict[str, list[tuple[str, dict[str, Any]]]] = {}
+        for key, entry in checks.items():
+            group = str(entry.get("notification_group", ""))
+            if group:
+                members.setdefault(group, []).append((key, entry))
+
+        group_states = state.setdefault("notification_groups", {})
+        pending = state.setdefault("pending_notifications", {})
+        for group, grouped_checks in members.items():
+            priorities = {int(entry.get("priority", 2)) for _, entry in grouped_checks}
+            names = {str(entry.get("name", "")) for _, entry in grouped_checks}
+            problems = {str(entry.get("problem", "")) for _, entry in grouped_checks}
+            resolved_messages = {
+                str(entry.get("resolved", "")) for _, entry in grouped_checks
+            }
+            if (
+                priorities != {3}
+                or len(names) != 1
+                or len(problems) != 1
+                or len(resolved_messages) != 1
+            ):
+                raise ValueError("Notification group members differ")
+
+            member_keys = {key for key, _ in grouped_checks}
+            individual_events = [
+                (event_id, event)
+                for event_id, event in pending.items()
+                if event.get("key") in member_keys
+            ]
+            individual_statuses = {
+                str(event.get("status", "")) for _, event in individual_events
+            }
+            for event_id, _ in individual_events:
+                pending.pop(event_id, None)
+
+            previous = group_states.get(group)
+            active = any(bool(entry.get("alert_active")) for _, entry in grouped_checks)
+            group_key = f"notification-group:{group}"
+            name = next(iter(names))
+            problem = next(iter(problems))
+            resolved = next(iter(resolved_messages))
+            event = {
+                "key": group_key,
+                "priority": 3,
+                "name": name,
+                "host": self.host,
+                "group": group,
+            }
+
+            if previous is None:
+                if active and "NEW" in individual_statuses:
+                    self._queue(state, {**event, "status": "NEW", "problem": problem})
+                elif not active and "RESOLVED" in individual_statuses:
+                    self._queue(
+                        state,
+                        {**event, "status": "RESOLVED", "problem": resolved},
+                    )
+            else:
+                was_active = bool(previous.get("alert_active"))
+                if active and not was_active:
+                    self._queue(state, {**event, "status": "NEW", "problem": problem})
+                elif not active and was_active:
+                    self._queue(
+                        state,
+                        {**event, "status": "RESOLVED", "problem": resolved},
+                    )
+                elif active and individual_statuses & {"NEW", "REMINDER"}:
+                    self._queue(
+                        state,
+                        {**event, "status": "REMINDER", "problem": problem},
+                    )
+
+            last_notification = max(
+                [float(previous.get("last_notification", 0) or 0) if previous else 0]
+                + [
+                    float(entry.get("last_notification", 0) or 0)
+                    for _, entry in grouped_checks
+                ]
+            )
+            group_states[group] = {
+                **(previous or {}),
+                "key": group_key,
+                "priority": 3,
+                "name": name,
+                "problem": problem,
+                "resolved": resolved,
+                "alert_active": active,
+                "last_notification": last_notification,
+            }
+            self._refresh_pending(
+                state,
+                key=group_key,
+                display=Display(3, name, problem, resolved, group),
+                alert_active=active,
+            )
 
     def process(self, state: dict[str, Any], results: Iterable[Any]) -> None:
         checks = state.setdefault("checks", {})
@@ -455,6 +566,9 @@ class NotificationEngine:
                                     "name": str(previous.get("name", display.name)),
                                     "problem": str(previous.get("resolved", display.resolved)),
                                     "host": self.host,
+                                    "group": str(
+                                        previous.get("notification_group", display.group)
+                                    ),
                                 },
                             )
                         alert_active = False
@@ -480,6 +594,7 @@ class NotificationEngine:
                                 "name": display.name,
                                 "problem": display.problem,
                                 "host": self.host,
+                                "group": display.group,
                             },
                         )
                 else:
@@ -504,6 +619,7 @@ class NotificationEngine:
                                 "name": display.name,
                                 "problem": display.problem,
                                 "host": self.host,
+                                "group": display.group,
                             },
                         )
 
@@ -523,6 +639,7 @@ class NotificationEngine:
                 "name": display.name,
                 "problem": display.problem,
                 "resolved": display.resolved,
+                "notification_group": display.group,
             }
             self._refresh_pending(
                 state,
@@ -535,6 +652,8 @@ class NotificationEngine:
             if key not in current_keys and self.now - float(checks[key].get("last_seen", 0)) > 86400:
                 del checks[key]
 
+        self._reconcile_notification_groups(state, checks)
+
         pending = state.setdefault("pending_notifications", {})
         pending_new_keys = {
             event["key"] for event in pending.values() if event.get("status") == "NEW"
@@ -545,6 +664,7 @@ class NotificationEngine:
             if (
                 priority in reminders
                 and entry.get("alert_active")
+                and not entry.get("notification_group")
                 and key not in pending_new_keys
                 and self.now - float(entry.get("last_notification", 0) or 0) >= reminders[priority]
             ):
@@ -557,6 +677,7 @@ class NotificationEngine:
                         "name": entry.get("name", _key_subject(key)),
                         "problem": entry.get("problem", "wykryto nieprawidłowy stan"),
                         "host": self.host,
+                        "group": "",
                     },
                 )
 
@@ -617,6 +738,7 @@ class NotificationEngine:
             if (
                 int(entry.get("priority", 2)) != 3
                 or not entry.get("alert_active")
+                or entry.get("notification_group")
                 or key in selected_keys
                 or key in sent_keys
             ):
@@ -628,8 +750,32 @@ class NotificationEngine:
                 "name": entry.get("name", _key_subject(key)),
                 "problem": entry.get("problem", "wykryto nieprawidłowy stan"),
                 "host": self.host,
+                "group": "",
             }
             self._queue(state, event)
+        for group, entry in state.get("notification_groups", {}).items():
+            key = str(entry.get("key", f"notification-group:{group}"))
+            if (
+                int(entry.get("priority", 2)) != 3
+                or not entry.get("alert_active")
+                or key in selected_keys
+                or key in sent_keys
+            ):
+                continue
+            self._queue(
+                state,
+                {
+                    "key": key,
+                    "priority": 3,
+                    "status": "REMINDER",
+                    "name": entry.get("name", _title(group)),
+                    "problem": entry.get(
+                        "problem", "wykryto nieprawidłowy stan"
+                    ),
+                    "host": self.host,
+                    "group": group,
+                },
+            )
         selected = [
             (event_id, event)
             for event_id, event in pending.items()
@@ -656,6 +802,12 @@ class NotificationEngine:
             for event_id, event in chunk:
                 if event["key"] in checks:
                     checks[event["key"]]["last_notification"] = self.now
+                group = str(event.get("group", ""))
+                if group in state.get("notification_groups", {}):
+                    state["notification_groups"][group]["last_notification"] = self.now
+                    for entry in checks.values():
+                        if entry.get("notification_group") == group:
+                            entry["last_notification"] = self.now
                 sent_keys.add(event["key"])
                 pending.pop(event_id, None)
             print(

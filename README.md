@@ -72,4 +72,8 @@ produce an immediate `REMINDER`. Messages are split at the configured item
 limit and Telegram's 4096-character limit; successful chunks are not retried
 when another chunk fails. The GP profile controls failure/recovery confirmation,
 the MEDIUM reminder interval, recovery suppression and chunk size. LOW remains
-a daily digest after 08:00 Europe/Warsaw.
+a daily digest after 08:00 Europe/Warsaw. Password Reset retains separate
+technical checks for each account and the orchestrator, but their notification
+lifecycle is aggregated into one `Password Reset` LOW entry. Partial account
+recovery does not emit `RESOLVED`; the group resolves only when all member
+checks are healthy.

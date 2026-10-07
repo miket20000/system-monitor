@@ -14,28 +14,32 @@
     {
       "patterns": ["daily-success:password-reset-primary"],
       "priority": 3,
-      "name": "Password Reset primary",
+      "name": "Password Reset",
+      "group": "password-reset",
       "problem": "dzienny przebieg nie zakończył się pomyślnie",
       "resolved": "dzienny przebieg ponownie zakończył się pomyślnie"
     },
     {
       "patterns": ["daily-success:password-reset-canva1"],
       "priority": 3,
-      "name": "Password Reset canva1",
+      "name": "Password Reset",
+      "group": "password-reset",
       "problem": "dzienny przebieg nie zakończył się pomyślnie",
       "resolved": "dzienny przebieg ponownie zakończył się pomyślnie"
     },
     {
       "patterns": ["daily-success:password-reset-canva2"],
       "priority": 3,
-      "name": "Password Reset canva2",
+      "name": "Password Reset",
+      "group": "password-reset",
       "problem": "dzienny przebieg nie zakończył się pomyślnie",
       "resolved": "dzienny przebieg ponownie zakończył się pomyślnie"
     },
     {
       "patterns": ["daily-success:password-reset-canva3"],
       "priority": 3,
-      "name": "Password Reset canva3",
+      "name": "Password Reset",
+      "group": "password-reset",
       "problem": "dzienny przebieg nie zakończył się pomyślnie",
       "resolved": "dzienny przebieg ponownie zakończył się pomyślnie"
     },
@@ -45,7 +49,8 @@
         "user-service:password-reset-orchestrator.service:result"
       ],
       "priority": 3,
-      "name": "Password Reset orchestrator",
+      "name": "Password Reset",
+      "group": "password-reset",
       "problem": "dzienny przebieg nie zakończył się pomyślnie",
       "resolved": "dzienny przebieg ponownie zakończył się pomyślnie"
     },
@@ -53,6 +58,7 @@
       "patterns": ["*password-reset*"],
       "priority": 3,
       "name": "Password Reset",
+      "group": "password-reset",
       "problem": "dzienny przebieg nie zakończył się pomyślnie",
       "resolved": "dzienny przebieg ponownie zakończył się pomyślnie"
     },

@@ -607,6 +607,87 @@ class NotificationEngineTests(unittest.TestCase):
         self.cycle(low)
         self.assertEqual(self.sender.calls[0][0], 3)
 
+    def test_password_reset_uses_one_group_lifecycle(self):
+        keys = [
+            "daily-success:password-reset-canva1",
+            "daily-success:password-reset-canva2",
+            "daily-success:password-reset-canva3",
+        ]
+
+        def failed(key):
+            return result(
+                key,
+                "critical",
+                "last run failed",
+                incident_id=f"{key}-failed",
+                notification_class="durable",
+            )
+
+        def healthy(key):
+            return result(
+                key,
+                "ok",
+                "healthy",
+                incident_id=f"{key}-healthy",
+                notification_class="durable",
+            )
+
+        def process(items):
+            NotificationEngine(
+                self.registry,
+                host="devbox",
+                now=self.now,
+                notify=True,
+                sender=self.sender,
+            ).process(self.state, items)
+            self.now += 300
+
+        process([failed(key) for key in keys])
+        self.assertEqual(len(self.sender.calls), 1)
+        self.assertEqual(self.sender.calls[0][1].count("Password Reset :"), 1)
+        self.assertNotIn("canva", self.sender.calls[0][1].lower())
+        self.assertTrue(
+            self.state["notification_groups"]["password-reset"]["alert_active"]
+        )
+
+        self.sender.calls.clear()
+        self.now = datetime(
+            2026, 10, 5, 10, 0, tzinfo=ZoneInfo("Europe/Warsaw")
+        ).timestamp()
+        process([failed(key) for key in keys])
+        self.assertEqual(len(self.sender.calls), 1)
+        self.assertTrue(self.sender.calls[0][1].startswith("[REMINDER]\n"))
+        self.assertEqual(self.sender.calls[0][1].count("Password Reset :"), 1)
+
+        self.sender.calls.clear()
+        process([healthy(keys[0]), failed(keys[1]), failed(keys[2])])
+        process([healthy(keys[0]), failed(keys[1]), failed(keys[2])])
+        self.assertEqual(self.sender.calls, [])
+        self.assertTrue(
+            self.state["notification_groups"]["password-reset"]["alert_active"]
+        )
+        self.assertFalse(
+            any(
+                event.get("status") == "RESOLVED"
+                for event in self.state.get("pending_notifications", {}).values()
+            )
+        )
+
+        process([healthy(key) for key in keys])
+        process([healthy(key) for key in keys])
+        grouped_pending = list(self.state.get("pending_notifications", {}).values())
+        self.assertEqual(len(grouped_pending), 1)
+        self.assertEqual(grouped_pending[0]["key"], "notification-group:password-reset")
+        self.assertEqual(grouped_pending[0]["status"], "RESOLVED")
+
+        self.now = datetime(
+            2026, 10, 6, 10, 0, tzinfo=ZoneInfo("Europe/Warsaw")
+        ).timestamp()
+        process([healthy(key) for key in keys])
+        self.assertEqual(len(self.sender.calls), 1)
+        self.assertTrue(self.sender.calls[0][1].startswith("[RESOLVED]\n"))
+        self.assertEqual(self.sender.calls[0][1].count("Password Reset :"), 1)
+
     def test_pending_low_event_uses_current_configured_name(self):
         key = "user-service:vps-restic-gp-mail-purge.service:result"
         self.state["pending_notifications"] = {
@@ -737,24 +818,20 @@ class ProfileTests(unittest.TestCase):
             names.append(display.name)
         self.assertEqual(len(names), len(set(names)))
 
-    def test_password_reset_checks_have_unambiguous_names(self):
+    def test_password_reset_checks_share_one_notification_group(self):
         registry = PriorityRegistry.load(ROOT / "config/priorities.json")
-        cases = {
-            "daily-success:password-reset-primary": "Password Reset primary",
-            "daily-success:password-reset-canva1": "Password Reset canva1",
-            "daily-success:password-reset-canva2": "Password Reset canva2",
-            "daily-success:password-reset-canva3": "Password Reset canva3",
-            "user-service:password-reset-orchestrator.service:result": (
-                "Password Reset orchestrator"
-            ),
-        }
-        names = []
-        for key, expected_name in cases.items():
+        keys = (
+            "daily-success:password-reset-primary",
+            "daily-success:password-reset-canva1",
+            "daily-success:password-reset-canva2",
+            "daily-success:password-reset-canva3",
+            "user-service:password-reset-orchestrator.service:result",
+        )
+        for key in keys:
             display = registry.display(key, "last run failed")
             self.assertEqual(display.priority, 3, key)
-            self.assertEqual(display.name, expected_name, key)
-            names.append(display.name)
-        self.assertEqual(len(names), len(set(names)))
+            self.assertEqual(display.name, "Password Reset", key)
+            self.assertEqual(display.group, "password-reset", key)
 
     def test_online_compiler_signals_identify_environment_and_signal(self):
         registry = PriorityRegistry.load(ROOT / "config/priorities.json")

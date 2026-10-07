@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-07 09:39 CEST (Europe/Warsaw)
+Updated: 2026-10-07 09:50 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -52,8 +52,12 @@ scheduler-health signals.
 - The neutral-running rule is limited to `Type=oneshot`. An active long-running
   service such as `minecraft-bedrock.service` (`Type=simple`) remains healthy
   even when its timer history contains an older interrupted invocation.
-- Password Reset checks and Online Compiler environment/scheduler signals have
-  distinct user-facing names while retaining their technical incident keys.
+- Password Reset retains separate technical account/orchestrator checks, while
+  the repository candidate aggregates their LOW notification lifecycle under
+  one `Password Reset` group. Partial member recovery stays silent and the
+  group resolves only after every member is healthy. Online Compiler
+  environment/scheduler signals retain distinct user-facing names and technical
+  incident keys. The Password Reset grouping candidate is not yet deployed.
 - Backup, verification, retention, restore-test and GP mail-archive jobs have
   explicit LOW display names, including `Backup Devbox`, `Backup GP` and
   `Archiwizacja poczty GP`.
@@ -217,6 +221,12 @@ scheduler-health signals.
   events and mode `0600`. The devbox timer remained active. The pre-send state
   snapshot is at
   `/home/miket/.local/state/system-monitor-rollbacks/20261007T093839+0200/manual-low-digest`.
+- PASS: the Password Reset grouping candidate passes 220 tests and 48 subtests.
+  Coverage verifies one group `NEW`, one daily `REMINDER`, silence during partial
+  member recovery and one final `RESOLVED`. A private-state devbox shadow
+  initialized the currently active group without replaying `NEW`; a forced
+  in-memory preview contained exactly one `Password Reset` reminder. The shadow
+  used `--no-notify` and did not modify production state.
 
 ## Constraints
 
@@ -233,7 +243,8 @@ scheduler-health signals.
 ## START HERE
 
 1. Read this file and check all three repository worktrees before editing.
-   Treat commit `9a547e1` as deployed on both monitor runtimes.
+   Treat commit `9a547e1` as the deployed baseline and the Password Reset group
+   lifecycle change as an undeployed candidate.
 2. Preserve current state v3 without clearing or replacement. The corrected
    owner-requested LOW digest cleared all pending LOW events on 2026-10-07; do
    not replay it or reset `last_low_digest_date`.
