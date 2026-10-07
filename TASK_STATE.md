@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-07 10:47 CEST (Europe/Warsaw)
+Updated: 2026-10-07 11:04 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -79,9 +79,9 @@ scheduler-health signals.
   `Archiwizacja poczty GP`.
 - GP-local scheduler checks run in the root system runtime, and the three-cycle
   GP dead-man runs in the devbox user runtime. Production state v3 was preserved
-  on both hosts. Both installed notification engines and priority registries
-  match commit `04957e4`; source HEAD `f7bd091` contains a separate, undeployed
-  notification-baseline candidate. Both timers were active at final readback.
+  on both hosts. Both installed notification engines match repair commit
+  `231fd52`; priority registries retain the exact `04957e4` bytes. Both timers
+  were active at final readback.
 - Private-state shadow runs used both `--no-notify` and a private state copy.
   GP returned all configured results with all seven Online Compiler checks OK;
   devbox returned `remote-dead-man:gp-monitor=OK`.
@@ -106,6 +106,14 @@ scheduler-health signals.
   `/home/miket/.local/state/system-monitor-rollbacks/20261007T095208+0200/password-reset-group`
   and root-only
   `/root/system-monitor-rollbacks/20261007T095208+0200/password-reset-group`.
+- Notification-baseline rollout snapshots are at
+  `/home/miket/.local/state/system-monitor-rollbacks/20261007T102648+0200/devbox-notification-baseline`
+  and root-only
+  `/root/system-monitor-rollbacks/20261007T103606+0200/gp-notification-baseline`.
+  Repair snapshots are at
+  `/home/miket/.local/state/system-monitor-rollbacks/20261007T104312+0200/devbox-stale-baseline-repair`
+  and root-only
+  `/root/system-monitor-rollbacks/20261007T105133+0200/gp-stale-baseline-repair`.
 
 ## Validation
 
@@ -273,8 +281,21 @@ scheduler-health signals.
   preserved state contained an inherited `notified_severity=ok`; the original
   migration handled an absent field but trusted this inconsistent value. No
   state was cleared or replaced and no rollback was performed. The smallest
-  source repair now rejects `ok` as the baseline of an active incident and has
-  passed the complete 224-test suite; repeat staged rollout is pending.
+  source repair rejects `ok` as the baseline of an active incident and passed
+  the complete 224-test suite.
+- PASS: repair commit `231fd52` was deployed devbox-first. Private-state shadow
+  runs used `--no-notify`; natural devbox cycles at 10:45 and 10:50 and GP
+  cycles at 10:56 and 11:01 all exited 0. No cycle emitted a notification,
+  pending remained empty, both active Next Dev checks retained their prior
+  `last_notification`, and state/Telegram file modes remained unchanged. A
+  final private run against the exact real pre-10:40 state migrated
+  `notified_severity=ok` to the active CRITICAL/code pair with no pending event
+  and without changing the 10:10 notification timestamp.
+- BLOCKED (pre-install readback only): the first GP repair installation check
+  found the natural 10:50 monitor cycle still `activating` and stopped before
+  replacing a file. Its timer-restoration trap succeeded; after that cycle
+  completed at 10:51, the exact same candidate was installed once. This was not
+  a monitor failure or an ambiguous mutation.
 - PASS: AnyDesk retirement passed 64 devbox legacy tests and JSON/diff checks.
   The deployed profile matches the repository file; the unit is
   `disabled/inactive`, the retired key is absent from production state, pending
@@ -306,9 +327,8 @@ scheduler-health signals.
 ## START HERE
 
 1. Read this file and check all three repository worktrees before editing.
-   Treat `f7bd091` as deployed on both monitor runtimes with the retained 10:40
-   false-reminder failure. The tested stale-`ok` migration repair must be
-   committed and deployed devbox-first before the rollout can pass.
+   Treat `231fd52` as deployed on both monitor runtimes and retain the historical
+   10:40 false-reminder failure from `f7bd091`; do not replay or delete it.
 2. Preserve current state v3 without clearing or replacement. The corrected
    owner-requested LOW digest cleared all pending LOW events on 2026-10-07; do
    not replay it or reset `last_low_digest_date`.
