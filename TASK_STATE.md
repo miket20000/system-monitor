@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-07 09:59 CEST (Europe/Warsaw)
+Updated: 2026-10-07 10:12 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -60,18 +60,19 @@ scheduler-health signals.
   service such as `minecraft-bedrock.service` (`Type=simple`) remains healthy
   even when its timer history contains an older interrupted invocation.
 - Password Reset retains separate technical account/orchestrator checks, while
-  the repository candidate aggregates their LOW notification lifecycle under
+  deployed commit `04957e4` aggregates their LOW notification lifecycle under
   one `Password Reset` group. Partial member recovery stays silent and the
   group resolves only after every member is healthy. Online Compiler
   environment/scheduler signals retain distinct user-facing names and technical
-  incident keys. The Password Reset grouping candidate is not yet deployed.
+  incident keys.
 - Backup, verification, retention, restore-test and GP mail-archive jobs have
   explicit LOW display names, including `Backup Devbox`, `Backup GP` and
   `Archiwizacja poczty GP`.
 - GP-local scheduler checks run in the root system runtime, and the three-cycle
   GP dead-man runs in the devbox user runtime. Production state v3 was preserved
-  on both hosts, installed package/configuration hashes match the repository,
-  and both timers were active at the final readback.
+  on both hosts. Both installed notification engines and priority registries
+  match commit `04957e4`; source HEAD `f7bd091` contains a separate, undeployed
+  notification-baseline candidate. Both timers were active at final readback.
 - Private-state shadow runs used both `--no-notify` and a private state copy.
   GP returned all configured results with all seven Online Compiler checks OK;
   devbox returned `remote-dead-man:gp-monitor=OK`.
@@ -92,6 +93,10 @@ scheduler-health signals.
   `/home/miket/.local/state/system-monitor-rollbacks/20261007T081358+0200/devbox-notification-correctness`
   and root-only
   `/root/system-monitor-rollbacks/20261007T081358+0200/gp-notification-correctness`.
+- Password Reset grouping rollout snapshots are at
+  `/home/miket/.local/state/system-monitor-rollbacks/20261007T095208+0200/password-reset-group`
+  and root-only
+  `/root/system-monitor-rollbacks/20261007T095208+0200/password-reset-group`.
 
 ## Validation
 
@@ -240,6 +245,19 @@ scheduler-health signals.
   replay a reminder, and a real `WARNING ->` one unconfirmed `OK -> CRITICAL`
   escalation still sends an immediate reminder. This combined source candidate
   is not deployed.
+- PASS: commit `04957e4` was deployed devbox-first without clearing or replacing
+  production state. Devbox natural 09:55 and 10:00 cycles and GP natural 10:05
+  and 10:10 cycles completed with exit 0. The devbox group initialized as active
+  under the single name `Password Reset`, with no replayed `NEW`, no pending
+  group event and the existing `last_low_digest_date=2026-10-07`. State mode
+  remained `0600`; GP has no configured notification groups and devbox dead-man
+  remained OK.
+- During GP staging, concurrent source HEAD advanced to `f7bd091`. GP was
+  corrected to the exact `04957e4` notification engine before its first natural
+  cycle; `f7bd091` remains undeployed on both hosts as required by its separate
+  authorization gate. The 10:05 and 10:10 GP cycles emitted MEDIUM reminders
+  for existing non-Password-Reset incidents; they are outside this grouping
+  change and no synthetic incident was created.
 
 ## Constraints
 
@@ -256,8 +274,8 @@ scheduler-health signals.
 ## START HERE
 
 1. Read this file and check all three repository worktrees before editing.
-   Treat commit `9a547e1` as the deployed baseline and the Password Reset group
-   lifecycle plus notification-baseline changes as an undeployed candidate.
+   Treat commit `04957e4` as deployed on both monitor runtimes. Treat source HEAD
+   `f7bd091` notification-baseline changes as a separate undeployed candidate.
 2. Preserve current state v3 without clearing or replacement. The corrected
    owner-requested LOW digest cleared all pending LOW events on 2026-10-07; do
    not replay it or reset `last_low_digest_date`.
