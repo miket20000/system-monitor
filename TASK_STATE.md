@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-07 11:04 CEST (Europe/Warsaw)
+Updated: 2026-10-07 15:07 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -307,6 +307,15 @@ scheduler-health signals.
   10:45:04 with exit 3; GP Monitor completed at 10:46:18 with exit 0 and
   recorded the completed mirror result as CRITICAL. Production state was not
   cleared or replaced.
+- PASS: the 21-path network-disk divergence was reconciled GP to Giganci after
+  immutable backups of both sides. Eight content differences and thirteen
+  metadata-only differences now match; post-copy SHA-256 verification, mirror
+  sync and checksum audit passed with zero divergence. The heartbeat was
+  refreshed at 14:57 CEST. Natural mirror cycles at 15:00 and 15:05 and GP
+  Monitor cycles at 15:01 and 15:06 exited 0; both mirror and cron-freshness
+  incidents are resolved with no pending notifications. Backups remain at
+  `/var/backups/dysk-sieciowy-reconcile-20261007T125641Z-gp` and
+  `/var/backups/dysk-sieciowy-reconcile-20261007T125641Z-giganci`.
 - BLOCKED (test invocation only): plain `pytest -q` could not import the local
   package. The corrected `PYTHONPATH=src pytest -q` passed 223 tests and 48
   subtests before the concurrent baseline repair added its final regression;
@@ -341,8 +350,7 @@ scheduler-health signals.
    latency without classifying them as scheduler failure.
 5. Preserve installed entrypoints, state paths, environment permissions and
    the three-channel message contract. Keep GP Monitor one minute after the
-   mirror cadence so completed mirror failures remain observable. The current
-   mirror divergence is a data reconciliation incident: retain both-side
-   backups and verified manifests before resolving it. Investigate application
-   incidents in their owning repository and never clear monitor state to force
-   recovery.
+   mirror cadence so completed mirror failures remain observable. Retain the
+   two 2026-10-07 network-disk reconciliation backups until an explicit
+   retention decision. Investigate application incidents in their owning
+   repository and never clear monitor state to force recovery.
