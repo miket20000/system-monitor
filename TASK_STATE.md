@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-07 16:22 CEST (Europe/Warsaw)
+Updated: 2026-10-07 17:20 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -166,8 +166,8 @@ scheduler-health signals.
 - At the October 5 cutover checkpoint, natural GP monitor cycles observed the
   migrated schedulers and the then-existing Next Dev incident recovered after
   healthy confirmation through its preserved key, without `[NEW]` replay. A
-  later independent Next Dev FAILED/HOLD incident remains active and is not a
-  monitor regression.
+  later independent Next Dev FAILED/HOLD incident was a scheduler/runtime
+  incident rather than a monitor regression and was recovered on 2026-10-07.
 - Scheduler cadence monitoring validation on 2026-10-06 passed 44 shared and
   158 legacy tests, JSON parsing, bytecode compilation and diff checks. The
   sandbox legacy run retained 15 EROFS harness errors; the identical
@@ -338,6 +338,16 @@ scheduler-health signals.
   bytecode and diff checks passed. The first sandbox full run retained 17 known
   EROFS harness failures and also exposed two stale profile expectations; those
   expectations were corrected before the clean host-context run.
+- PASS: after the explicitly authorized Next Dev recovery, natural GP Monitor
+  cycles observed fresh `CLOSED/HEALTHY/NONE` scheduler state, `HIBERNATED`,
+  zero HOLD and healthy idle status. The environment incident resolved at
+  17:11 CEST after its second healthy observation; scheduler freshness and
+  scheduler-health resolved together at 17:16 after their second observations.
+  The monitor emitted only the expected `[RESOLVED]` events and has all three
+  Next Dev keys OK/inactive with no pending Next Dev notification, while PROD
+  remained healthy. One unrelated pending LOW resolution for network-disk
+  synchronization remains untouched. Production monitor state was never
+  cleared or replaced.
 
 ## Constraints
 
@@ -363,6 +373,8 @@ scheduler-health signals.
 3. Keep GP-local scheduler checks and the devbox three-cycle dead-man probe.
    Any shadow validation must use both `--no-notify` and a private state path;
    do not manufacture a failure to test notification delivery.
+   The 2026-10-07 Next Dev environment, freshness and scheduler incidents are
+   recovered and inactive; do not replay or delete their history.
 4. The first 24-hour five-minute-cadence PROD observation is complete and
    passed. The source candidate keeps 300 seconds for steady cycles, uses 900
    seconds for `STARTING`/`STOPPING`, retains 1860 seconds for overdue and keeps
