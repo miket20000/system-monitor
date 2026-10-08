@@ -332,6 +332,13 @@ scheduler-health signals.
   incidents are resolved with no pending notifications. Backups remain at
   `/var/backups/dysk-sieciowy-reconcile-20261007T125641Z-gp` and
   `/var/backups/dysk-sieciowy-reconcile-20261007T125641Z-giganci`.
+- PASS: the owner-authorized 2026-10-08 mirror policy now resolves existing-file
+  conflicts automatically by newer `mtime` (GP wins exact ties) and archives
+  the losing version below `!_ARCHIWUM_!/mirror-conflicts`; it does not delete
+  user files. Three older Giganci versions were archived and both directions
+  reached zero mismatches. The natural 09:10 mirror cycle made zero changes,
+  the natural 09:11 GP Monitor cycle reported the service `OK`, and the exact
+  alert plus pending queue are empty without manual state editing.
 - PASS: the authorized controlled Social Media invitation run processed all 33
   in-scope Facebook pages and excluded `Main-Instagram`. It sent 10 confirmed
   invitations across seven pages; 26 pages had no current pool, with zero
@@ -394,8 +401,10 @@ scheduler-health signals.
    the three-channel message contract. Keep GP Monitor one minute after the
    mirror cadence so completed mirror failures remain observable. Retain the
    two 2026-10-07 network-disk reconciliation backups until an explicit
-   retention decision. Investigate application incidents in their owning
-   repository and never clear monitor state to force recovery.
+   retention decision, and retain the 2026-10-08 conflict archives and mirror
+   rollback backup until the owner decides their retention. Investigate
+   application incidents in their owning repository and never clear monitor
+   state to force recovery.
 6. Keep Minecraft Bedrock retired: do not restore its two devbox profile
    entries, re-enable its timers or replay the removed LOW recovery event
    without explicit owner authorization. Runtime data under
