@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-07 17:20 CEST (Europe/Warsaw)
+Updated: 2026-10-08 08:55 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -59,9 +59,11 @@ scheduler-health signals.
   only a completed healthy result can advance recovery. Devbox filesystem
   discovery also isolates inaccessible ephemeral mounts instead of aborting the
   entire monitor cycle.
-- The neutral-running rule is limited to `Type=oneshot`. An active long-running
-  service such as `minecraft-bedrock.service` (`Type=simple`) remains healthy
-  even when its timer history contains an older interrupted invocation.
+- Minecraft Bedrock is intentionally retired on devbox. Its start and stop
+  timers are disabled, the server is stopped, and the deployed devbox profile
+  contains no Minecraft checks. The six exact check records, two timer-service
+  cache records and one pending LOW recovery event were removed without
+  changing unrelated monitor state or sending a synthetic notification.
 - AnyDesk is intentionally retired on devbox: `anydesk.service` autostart is
   disabled, the unit is absent from the deployed devbox profile and its exact
   obsolete state entry was removed without changing other incidents. No
@@ -243,6 +245,14 @@ scheduler-health signals.
 - PASS: installed GP unit verification was clean. Devbox unit verification
   exited 0 with one unrelated existing `spice-vdagent.service` warning about an
   ignored `StandardError` key in `[Install]`.
+- PASS: owner-authorized Minecraft Bedrock retirement on 2026-10-08 stopped the
+  service, removed its container and disabled both system timers. Source and
+  deployed devbox profiles have the same SHA-256, a private-state `--no-notify`
+  shadow returned zero Minecraft results, and production state contains no
+  Minecraft check, timer-service or pending-notification entry. The natural
+  08:55 monitor cycle exited 0 without a Minecraft result or notification.
+  Rollback is at
+  `/home/miket/.local/state/system-monitor-rollbacks/20261008T085034+0200-minecraft-bedrock-retirement`.
 - BLOCKED (observation helper only): the first shell counter for devbox natural
   cycles treated an empty `rg -c` result as an integer. It was stopped and the
   corrected direct journal counter confirmed both cycles; monitor execution and
@@ -386,3 +396,7 @@ scheduler-health signals.
    two 2026-10-07 network-disk reconciliation backups until an explicit
    retention decision. Investigate application incidents in their owning
    repository and never clear monitor state to force recovery.
+6. Keep Minecraft Bedrock retired: do not restore its two devbox profile
+   entries, re-enable its timers or replay the removed LOW recovery event
+   without explicit owner authorization. Runtime data under
+   `/opt/minecraft-bedrock` remains preserved.

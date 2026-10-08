@@ -174,20 +174,6 @@
       "warning_hours": 2400,
       "critical_hours": 2640,
       "first_success_due": "2026-10-08T15:00:00+02:00"
-    },
-    {
-      "unit": "minecraft-bedrock-start.timer",
-      "service": "minecraft-bedrock.service",
-      "warning_hours": 30,
-      "critical_hours": 36,
-      "first_success_due": "2026-09-09T08:30:00+02:00"
-    },
-    {
-      "unit": "minecraft-bedrock-stop.timer",
-      "service": "minecraft-bedrock-stop.service",
-      "warning_hours": 30,
-      "critical_hours": 36,
-      "first_success_due": "2026-09-09T22:30:00+02:00"
     }
   ],
   "daily_success_checks": [

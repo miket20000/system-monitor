@@ -142,17 +142,14 @@ class ConfigCoverageTests(unittest.TestCase):
                 "devbox-system-backup-check.timer",
                 "devbox-system-backup-data-check.timer",
                 "devbox-system-backup-restore-test.timer",
-                "minecraft-bedrock-start.timer",
-                "minecraft-bedrock-stop.timer",
             },
         )
         self.assertEqual(
             system_timers["devbox-system-backup-restore-test.timer"]["critical_hours"],
             2640,
         )
-        self.assertEqual(
-            system_timers["minecraft-bedrock-start.timer"]["service"],
-            "minecraft-bedrock.service",
+        self.assertFalse(
+            any("minecraft-bedrock" in unit for unit in system_timers),
         )
 
     def test_password_reset_daily_state_uses_only_safe_fields(self):
