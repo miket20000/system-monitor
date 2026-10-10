@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-08 08:55 CEST (Europe/Warsaw)
+Updated: 2026-10-10 21:22 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -71,11 +71,12 @@ scheduler-health signals.
 - GP Monitor runs at minutes `01/06/11/...`, one minute after the network-disk
   mirror's `00/05/10/...` cadence. This preserves the five-minute interval and
   samples the mirror's completed result instead of its transient running state.
-- The repository candidate adds stable `ONLINE_COMPILER_STARTING_SLOW` and
+- The deployed monitor adds stable `ONLINE_COMPILER_STARTING_SLOW` and
   `ONLINE_COMPILER_STOPPING_SLOW` message codes. A transition warning remains
   durable, so its first observation past 900 seconds sends `[NEW]` immediately;
-  recovery still requires two healthy observations. The installed runtimes and
-  production state are unchanged pending a separately authorized deployment.
+  recovery still requires two healthy observations. Steady `OPEN`/`CLOSED`
+  cycles retain the 300-second warning and every cycle retains the 1860-second
+  overdue boundary.
 - Password Reset retains separate technical account/orchestrator checks, while
   deployed commit `04957e4` aggregates their LOW notification lifecycle under
   one `Password Reset` group. Partial member recovery stays silent and the
@@ -87,9 +88,10 @@ scheduler-health signals.
   `Archiwizacja poczty GP`.
 - GP-local scheduler checks run in the root system runtime, and the three-cycle
   GP dead-man runs in the devbox user runtime. Production state v3 was preserved
-  on both hosts. Both installed notification engines match repair commit
-  `231fd52`; priority registries retain the exact `04957e4` bytes. Both timers
-  were active at final readback.
+  on both hosts. The installed phase-aware adapter, notification allowlist, GP
+  profile and priority registry match commit `b06652b`; later repository commits
+  did not change those runtime bytes. Both timers were enabled/active at final
+  readback.
 - Private-state shadow runs used both `--no-notify` and a private state copy.
   GP returned all configured results with all seven Online Compiler checks OK;
   devbox returned `remote-dead-man:gp-monitor=OK`.
@@ -122,6 +124,10 @@ scheduler-health signals.
   `/home/miket/.local/state/system-monitor-rollbacks/20261007T104312+0200/devbox-stale-baseline-repair`
   and root-only
   `/root/system-monitor-rollbacks/20261007T105133+0200/gp-stale-baseline-repair`.
+- Phase-aware scheduler-alert rollout snapshots are at
+  `/home/miket/.local/state/system-monitor-rollbacks/20261010T2103+0200-transition-threshold-devbox`
+  and root-only
+  `/root/system-monitor-rollbacks/20261010T2113+0200-transition-threshold` on GP.
 
 ## Validation
 
@@ -355,6 +361,24 @@ scheduler-health signals.
   bytecode and diff checks passed. The first sandbox full run retained 17 known
   EROFS harness failures and also exposed two stale profile expectations; those
   expectations were corrected before the clean host-context run.
+- PASS: the owner-authorized 2026-10-10 production rollout deployed the exact
+  phase-aware runtime bytes from `b06652b` devbox-first without clearing or
+  replacing either production state file. The fresh sandbox rerun retained the
+  17 known EROFS harness failures with 107 tests and 48 subtests passing; the
+  identical host-context scope passed 124 tests and 48 subtests. JSON, bytecode,
+  diff and installed GP unit verification passed.
+- PASS: private-state `--no-notify` shadows returned 81/81 OK on devbox and
+  318/318 OK on GP. Natural devbox cycles at 21:05 and 21:10 and GP cycles at
+  21:16 and 21:21 CEST exited 0. Devbox dead-man remained OK; the GP Online
+  Compiler checks, scheduler health and public availability were healthy.
+  Installed adapter, notification allowlist, GP profile and priority registry
+  hashes match the candidate, and both timers remain enabled/active.
+- The old GP runtime emitted one final truthful-to-its-old-policy `CYCLE_SLOW`
+  `[NEW]` at 21:06 while the already-running production `STOPPING` transition
+  exceeded 300 seconds. That transition completed `PASS_CLOSED` before the
+  deployment; the new runtime observed the second healthy sample and sent its
+  normal `[RESOLVED]` at 21:16. It opened no new incident. The unrelated pending
+  `vm-manager-retention` LOW resolution remains preserved and unsent.
 - PASS: after the explicitly authorized Next Dev recovery, natural GP Monitor
   cycles observed fresh `CLOSED/HEALTHY/NONE` scheduler state, `HIBERNATED`,
   zero HOLD and healthy idle status. The environment incident resolved at
@@ -381,9 +405,9 @@ scheduler-health signals.
 ## START HERE
 
 1. Read this file and check all three repository worktrees before editing.
-   Treat `231fd52` as deployed on both monitor runtimes and retain the historical
-   10:40 false-reminder failure from `f7bd091`; do not replay or delete it. The
-   phase-aware threshold candidate is source-only and not yet deployed.
+   Treat the exact phase-aware runtime files from `b06652b` as deployed on both
+   monitor runtimes and retain the historical 10:40 false-reminder failure from
+   `f7bd091`; do not replay or delete it.
 2. Preserve current state v3 without clearing or replacement. The corrected
    owner-requested LOW digest cleared all pending LOW events on 2026-10-07; do
    not replay it or reset `last_low_digest_date`.
@@ -392,11 +416,12 @@ scheduler-health signals.
    do not manufacture a failure to test notification delivery.
    The 2026-10-07 Next Dev environment, freshness and scheduler incidents are
    recovered and inactive; do not replay or delete their history.
-4. The first 24-hour five-minute-cadence PROD observation is complete and
-   passed. The source candidate keeps 300 seconds for steady cycles, uses 900
-   seconds for `STARTING`/`STOPPING`, retains 1860 seconds for overdue and keeps
-   the 600/900-second idle thresholds. Deploy only after fresh state readback
-   and explicit authorization; never classify `CYCLE_SLOW` as scheduler failure.
+4. The first 24-hour five-minute-cadence PROD observation and the phase-aware
+   rollout are complete and passed. The deployed runtime keeps 300 seconds for
+   steady cycles, uses 900 seconds for `STARTING`/`STOPPING`, retains 1860
+   seconds for overdue and keeps the 600/900-second idle thresholds. Verify the
+   next natural opening/closing transition without synthesizing an incident;
+   never classify `CYCLE_SLOW` as scheduler failure.
 5. Preserve installed entrypoints, state paths, environment permissions and
    the three-channel message contract. Keep GP Monitor one minute after the
    mirror cadence so completed mirror failures remain observable. Retain the
