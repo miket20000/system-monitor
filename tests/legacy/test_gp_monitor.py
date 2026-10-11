@@ -694,6 +694,41 @@ class ConfigCoverageTests(unittest.TestCase):
         self.assertNotIn("online-compiler-ready-local", endpoints)
         self.assertEqual(endpoints["koduj"]["url"], "https://koduj.gp.edu.pl/")
 
+    def test_retired_ads_apis_are_excluded(self) -> None:
+        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        timers = {item["unit"] for item in config["system_timers"]}
+        endpoints = {item["name"] for item in config["endpoints"]}
+
+        for unit in (
+            "google-api.service",
+            "google-api-mcp.service",
+            "meta-api.service",
+            "meta-api-mcp.service",
+        ):
+            self.assertNotIn(unit, config["system_services"])
+
+        for unit in (
+            "google-api-daily-sync.timer",
+            "meta-api-daily-sync.timer",
+            "meta-api-status-watcher.timer",
+        ):
+            self.assertNotIn(unit, timers)
+
+        for name in (
+            "ads-dashboard",
+            "google-api-local",
+            "google-api-mcp-local",
+            "meta-api-public",
+            "meta-api-privacy",
+            "meta-api-deletion",
+            "meta-api-mcp-public",
+            "oauth-resource-metadata",
+            "oauth-server-metadata",
+            "meta-api-local",
+            "meta-api-mcp-local",
+        ):
+            self.assertNotIn(name, endpoints)
+
     def test_audited_p1_and_p2_dependencies_are_monitored(self) -> None:
         config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
         timers = {item["unit"]: item for item in config["system_timers"]}
@@ -702,10 +737,6 @@ class ConfigCoverageTests(unittest.TestCase):
         self.assertEqual(
             timers["auth-gp-expiry.timer"]["service"],
             "auth-gp-expiry.service",
-        )
-        self.assertEqual(
-            endpoints["meta-api-local"]["url"],
-            "http://127.0.0.1:8090/health",
         )
         self.assertEqual(
             endpoints["meta-notifier-local"]["expected_json"],

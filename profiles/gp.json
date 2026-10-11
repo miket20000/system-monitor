@@ -41,10 +41,6 @@
     "postgresql@17-main.service",
     "vsconline-code-server.service",
     "vm-manager.service",
-    "meta-api.service",
-    "meta-api-mcp.service",
-    "google-api.service",
-    "google-api-mcp.service",
     "mail-handler.service",
     "meta-notifier.service",
     "designmodo-api.service",
@@ -179,18 +175,6 @@
       "critical_hours": 3
     },
     {
-      "unit": "meta-api-daily-sync.timer",
-      "service": "meta-api-daily-sync.service",
-      "warning_hours": 30,
-      "critical_hours": 36
-    },
-    {
-      "unit": "meta-api-status-watcher.timer",
-      "service": "meta-api-status-watcher.service",
-      "warning_hours": 0.1667,
-      "critical_hours": 0.25
-    },
-    {
       "unit": "dysk-sieciowy-mirror.timer",
       "service": "dysk-sieciowy-mirror.service",
       "warning_hours": 0.25,
@@ -199,12 +183,6 @@
     {
       "unit": "mail-handler-sheets-import.timer",
       "service": "mail-handler-sheets-import.service",
-      "warning_hours": 30,
-      "critical_hours": 36
-    },
-    {
-      "unit": "google-api-daily-sync.timer",
-      "service": "google-api-daily-sync.service",
       "warning_hours": 30,
       "critical_hours": 36
     },
@@ -393,13 +371,6 @@
     {
       "name": "dysk",
       "url": "https://dysk.gp.edu.pl/",
-      "allowed_statuses": [
-        200
-      ]
-    },
-    {
-      "name": "ads-dashboard",
-      "url": "https://ads-dashboard.gp.edu.pl/",
       "allowed_statuses": [
         200
       ]
@@ -689,10 +660,6 @@
       ]
     },
     {
-      "name": "meta-api-public",
-      "url": "https://dysk.gp.edu.pl/meta-api/"
-    },
-    {
       "name": "meta-notifier-public",
       "url": "https://dysk.gp.edu.pl/social-comments/health",
       "allowed_statuses": [
@@ -723,60 +690,6 @@
         "ok": true,
         "catalog_errors": []
       }
-    },
-    {
-      "name": "meta-api-privacy",
-      "url": "https://dysk.gp.edu.pl/m-ads-api/privacy-policy",
-      "allowed_statuses": [
-        200
-      ]
-    },
-    {
-      "name": "meta-api-deletion",
-      "url": "https://dysk.gp.edu.pl/m-ads-api/data-deletion",
-      "allowed_statuses": [
-        200
-      ]
-    },
-    {
-      "name": "meta-api-mcp-public",
-      "url": "https://dysk.gp.edu.pl/meta-api/mcp"
-    },
-    {
-      "name": "oauth-resource-metadata",
-      "url": "https://dysk.gp.edu.pl/.well-known/oauth-protected-resource/meta-api/mcp"
-    },
-    {
-      "name": "oauth-server-metadata",
-      "url": "https://dysk.gp.edu.pl/.well-known/oauth-authorization-server"
-    },
-    {
-      "name": "meta-api-local",
-      "url": "http://127.0.0.1:8090/health",
-      "allowed_statuses": [
-        200
-      ],
-      "expected_json": {
-        "status": "ok"
-      }
-    },
-    {
-      "name": "google-api-local",
-      "url": "http://127.0.0.1:8094/health",
-      "allowed_statuses": [
-        200
-      ]
-    },
-    {
-      "name": "google-api-mcp-local",
-      "url": "http://127.0.0.1:8097/health",
-      "allowed_statuses": [
-        200
-      ]
-    },
-    {
-      "name": "meta-api-mcp-local",
-      "url": "http://127.0.0.1:8091/mcp"
     },
     {
       "name": "vm-manager-local",

@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-10 21:22 CEST (Europe/Warsaw)
+Updated: 2026-10-11 14:06 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -13,6 +13,15 @@ scheduler-health signals.
 
 - The repository contains the imported GP and devbox probe adapters, the
   shared notification engine, common priority routing and source profiles.
+- Ads Dashboard, Google API/MCP/daily sync and Meta API/MCP/daily sync/status
+  watcher are intentionally retired on GP. Their service, timer, endpoint and
+  derived TLS probes were removed from `profiles/gp.json`; exact retained
+  check/endpoint-failure state was atomically removed while the timer was
+  stopped. A private-state shadow returned 296 results with no retired checks,
+  and the first natural production cycle at 14:05 CEST completed successfully
+  without notification replay. Unrelated priorities and incidents were left
+  unchanged. The deployed GP profile hash matches the source; the full local
+  suite passed with 228 tests and 50 subtests.
 - GP profile code now reads the local PROD and Next Dev system units and state
   files. It reports environment status, scheduler health/reason and cycle
   freshness independently; ACTIVE past the configured idle limit has a
@@ -434,3 +443,6 @@ scheduler-health signals.
    entries, re-enable its timers or replay the removed LOW recovery event
    without explicit owner authorization. Runtime data under
    `/opt/minecraft-bedrock` remains preserved.
+7. Keep Ads Dashboard, Google API and Meta API retired on GP. Do not restore
+   their probes or state unless the owner separately authorizes reactivation of
+   the corresponding services and public routes.
