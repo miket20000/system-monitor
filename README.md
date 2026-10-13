@@ -22,6 +22,10 @@ remain at their established locations:
 | devbox | `~/.local/lib/devbox-monitor/devbox-monitor.py` | `~/.config/devbox-monitor/config.json` | `~/.local/state/devbox-monitor/state.json` |
 | GP | `/usr/local/lib/gp-monitor/gp-monitor.py` | `/etc/gp-monitor/config.json` | `/var/lib/gp-monitor/state.json` |
 
+`lesson-materials-sync.timer` is owned by GP as a root system timer and is
+monitored only by the GP profile with 18-hour warning and 26-hour critical
+freshness thresholds. The retired devbox user timer must not be restored.
+
 The entrypoints are compatibility wrappers. Shared package code is installed
 under `~/.local/lib/system-monitor` on devbox and
 `/usr/local/lib/system-monitor` on GP. The legacy Online Compiler heartbeat

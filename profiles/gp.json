@@ -139,6 +139,12 @@
   ],
   "system_timers": [
     {
+      "unit": "lesson-materials-sync.timer",
+      "service": "lesson-materials-sync.service",
+      "warning_hours": 18,
+      "critical_hours": 26
+    },
+    {
       "unit": "openai-key-monitor.timer",
       "service": "openai-key-monitor.service",
       "warning_hours": 2,

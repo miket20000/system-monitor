@@ -853,6 +853,23 @@ class ProfileTests(unittest.TestCase):
             self.assertEqual(check["last_success_local_date_field"], "last_success_local_date")
             self.assertNotIn("pending_field", check)
 
+    def test_lesson_materials_sync_is_owned_exclusively_by_gp(self):
+        devbox = json.loads((ROOT / "profiles/devbox.json").read_text())
+        gp = json.loads((ROOT / "profiles/gp.json").read_text())
+        self.assertNotIn(
+            "lesson-starters-sync.timer",
+            {item["unit"] for item in devbox["user_timers"]},
+        )
+        self.assertIn(
+            "lesson-materials-sync.timer",
+            {item["unit"] for item in gp["system_timers"]},
+        )
+        registry = PriorityRegistry.load(ROOT / "config/priorities.json")
+        self.assertEqual(
+            registry.display("system-timer:lesson-materials-sync.timer", "late").priority,
+            3,
+        )
+
     def test_every_configured_endpoint_has_an_explicit_expected_priority(self):
         registry = PriorityRegistry.load(ROOT / "config/priorities.json")
         devbox = json.loads((ROOT / "profiles/devbox.json").read_text())

@@ -84,11 +84,12 @@ class ConfigCoverageTests(unittest.TestCase):
 
     def test_expected_timers_are_monitored_and_transient_timer_is_excluded(self):
         timers = {item["unit"]: item for item in self.config["user_timers"]}
-        self.assertEqual(len(timers), 10)
+        self.assertEqual(len(timers), 9)
         self.assertNotIn("online-compiler-dev-retention-audit.timer", timers)
         self.assertNotIn("scripts-windows-git-sync.timer", timers)
         self.assertNotIn("git-sync@scripts-windows.timer", timers)
         self.assertNotIn("git-sync@scripts-wsl.timer", timers)
+        self.assertNotIn("lesson-starters-sync.timer", timers)
         self.assertEqual(
             timers["password-reset-orchestrator.timer"],
             {
@@ -96,15 +97,6 @@ class ConfigCoverageTests(unittest.TestCase):
                 "service": "password-reset-orchestrator.service",
                 "warning_hours": 1,
                 "critical_hours": 2,
-            },
-        )
-        self.assertEqual(
-            timers["lesson-starters-sync.timer"],
-            {
-                "unit": "lesson-starters-sync.timer",
-                "service": "lesson-starters-sync.service",
-                "warning_hours": 18,
-                "critical_hours": 26,
             },
         )
         self.assertEqual(timers["vps-restic-backup.timer"]["critical_hours"], 36)

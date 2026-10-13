@@ -183,7 +183,7 @@
         "system-timer:*retention*", "system-service:*retention*:result",
         "system-timer:*restore-test*", "system-service:*restore-test*:result",
         "system-timer:minecraft-bedrock-*", "system-service:minecraft-bedrock*:result",
-        "user-timer:lesson-starters-sync.timer", "user-service:lesson-starters-sync.service:result",
+        "system-timer:lesson-materials-sync.timer", "system-service:lesson-materials-sync.service:result",
         "user-timer:telegram-daily-reason.timer", "user-service:telegram-daily-reason.service:result",
         "system-timer:meta-api-daily-sync.timer", "system-service:meta-api-daily-sync.service:result",
         "system-timer:mail-handler-sheets-import.timer", "system-service:mail-handler-sheets-import.service:result",

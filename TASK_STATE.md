@@ -1,16 +1,27 @@
 # System Monitor — Task State
 
-Updated: 2026-10-11 14:06 CEST (Europe/Warsaw)
+Updated: 2026-10-13 08:31 CEST (Europe/Warsaw)
 
 ## Goal
 
 Make `system-monitor` the sole owner of Online Compiler alerts, reminders and
 recovery while the schedulers move from devbox to GP. Preserve the two monitor
 runtimes, existing incident identities and independent availability and
-scheduler-health signals.
+scheduler-health signals. Keep host ownership accurate when other services move
+between devbox and GP without clearing or replaying monitor state.
 
 ## Current implementation
 
+- Lesson Materials monitoring moved from the retired devbox user timer to GP's
+  `lesson-materials-sync.timer`/service with unchanged 18/26-hour thresholds.
+  The devbox profile no longer contains the old probe; the GP profile and LOW
+  priority registry contain the new system-unit keys. Full host-context tests
+  passed (`230 tests`, `50 subtests`). Both deployments preserved production
+  state and have private rollback copies at
+  `/home/miket/.local/state/system-monitor-rollbacks/20261013T060941Z-lesson-materials`
+  and `/root/system-monitor-rollbacks/20261013T061539Z-lesson-materials`.
+  Private `--no-notify` shadows passed; natural devbox cycles 08:10/08:15 and
+  GP cycle 08:16 CEST completed with result 0, with both new GP probes `OK`.
 - The repository contains the imported GP and devbox probe adapters, the
   shared notification engine, common priority routing and source profiles.
 - Ads Dashboard, Google API/MCP/daily sync and Meta API/MCP/daily sync/status
@@ -414,6 +425,9 @@ scheduler-health signals.
 ## START HERE
 
 1. Read this file and check all three repository worktrees before editing.
+   Lesson Materials is now GP-owned; do not restore the devbox probe. After its
+   first natural application cycle at 15:00 CEST, verify the next GP monitor
+   cycle before the retired devbox application is deleted.
    Treat the exact phase-aware runtime files from `b06652b` as deployed on both
    monitor runtimes and retain the historical 10:40 false-reminder failure from
    `f7bd091`; do not replay or delete it.

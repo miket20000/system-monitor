@@ -252,6 +252,20 @@ class ConfigCoverageTests(unittest.TestCase):
             },
         )
 
+    def test_lesson_materials_sync_is_monitored(self) -> None:
+        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        timers = {item["unit"]: item for item in config["system_timers"]}
+
+        self.assertEqual(
+            timers["lesson-materials-sync.timer"],
+            {
+                "unit": "lesson-materials-sync.timer",
+                "service": "lesson-materials-sync.service",
+                "warning_hours": 18,
+                "critical_hours": 26,
+            },
+        )
+
     def test_vm_manager_inventory_sync_is_monitored(self) -> None:
         config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
         endpoints = {item["name"]: item for item in config["endpoints"]}

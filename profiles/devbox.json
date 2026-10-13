@@ -78,12 +78,6 @@
       "critical_hours": 2
     },
     {
-      "unit": "lesson-starters-sync.timer",
-      "service": "lesson-starters-sync.service",
-      "warning_hours": 18,
-      "critical_hours": 26
-    },
-    {
       "unit": "socialmedia-weekly-invitations.timer",
       "service": "socialmedia-weekly-invitations.service",
       "warning_hours": 192,
