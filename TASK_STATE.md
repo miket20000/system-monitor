@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-16 17:05 CEST (Europe/Warsaw)
+Updated: 2026-10-16 17:32 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -14,14 +14,17 @@ value, crossed threshold or invalid service state.
 
 ## Current implementation
 
-- The source candidate emits detailed, allowlisted resource and service
-  notifications. Disk, inode, RAM, swap and five-minute load alerts include the
-  observed value and the warning or critical threshold actually crossed; load
+- Commit `ce8683b` is deployed on devbox and GP and emits detailed, allowlisted
+  resource and service notifications. Disk, inode, RAM, swap and five-minute
+  load alerts include the observed value and the warning or critical threshold
+  actually crossed; load
   also includes the CPU count used to calculate the threshold. Unit-health
   alerts, including GNOME Remote Desktop, include normalized `systemd` active,
   failure or enablement states. Raw command output remains excluded. Thresholds,
-  confirmation cycles, reminders and incident identities are unchanged. This
-  candidate is not deployed to either runtime.
+  confirmation cycles, reminders and incident identities are unchanged.
+  Production state v3 was preserved on both hosts. Rollbacks are private at
+  `/home/miket/.local/state/system-monitor-rollbacks/20261016T150941Z-detailed-notifications/devbox`
+  and `/root/system-monitor-rollbacks/20261016T152135Z-detailed-notifications/gp`.
 - Lesson Materials monitoring moved from the retired devbox user timer to GP's
   `lesson-materials-sync.timer`/service with unchanged 18/26-hour thresholds.
   The devbox profile no longer contains the old probe; the GP profile and LOW
@@ -166,6 +169,19 @@ value, crossed threshold or invalid service state.
   `git diff --check` passed. Coverage includes exact load value/threshold text,
   warning and critical threshold selection on both adapters, normalized GNOME
   Remote Desktop/systemd states and rejection of untrusted decimal context.
+- PASS: owner-authorized production rollout deployed exact runtime hashes from
+  `ce8683b` devbox-first. Pre-install and installed-runtime shadows used
+  `--no-notify` with private state copies: devbox returned 79 results (78 OK and
+  the preserved Social Media failure), while GP returned 298/298 OK. Production
+  state hashes were unchanged by both shadows. Natural devbox cycles at 17:15
+  and 17:20 CEST and GP cycles at 17:26 and 17:31 CEST completed with exit 0;
+  no warning/error journal entries or notification sends occurred in either
+  rollout window. Both timers are enabled/active, runtime hashes match source,
+  state remains v3, and Telegram/state/priority permissions are preserved.
+- BLOCKED (observation helper only): the first devbox natural-cycle helper used
+  a `date` expression rejected by the local parser. It was interrupted without
+  changing the timer or service; the corrected epoch-based observation passed
+  both required cycles. This was not a monitor or deployment failure.
 - PASS: 181 shared and imported unit tests: 23 common, 60 devbox legacy and 98
   GP legacy. Coverage includes changing durable evidence IDs, confirmed
   recovery and reopen, six-hour MEDIUM reminders, pending-event refresh,
@@ -434,18 +450,19 @@ value, crossed threshold or invalid service state.
 - Do not manufacture incidents or expose URLs, payloads, tokens or chat IDs in
   notifications and logs.
 - Source commit, deployment and production-state migration remain separate
-  authorization gates. The current candidate must not be copied to either host
+  authorization gates. Any future candidate must not be copied to either host
   without a fresh runtime/state readback and explicit deployment authorization.
 
 ## START HERE
 
 1. Read this file and inspect the current repository worktree. Only the main
    worktree at `/home/miket/coding/system-monitor` was registered on 2026-10-16;
-   do not assume historical worktrees still exist. The detailed-notification
-   candidate is source-only: before any deployment, re-read the live runtime,
-   production state and timers, use a private state copy with `--no-notify`, and
-   obtain explicit deployment authorization. Deploy devbox first and wait for
-   two natural cycles before considering GP.
+   do not assume historical worktrees still exist. Detailed notifications from
+   `ce8683b` are deployed and verified on both hosts. Preserve the two private
+   rollback snapshots and current state v3; do not synthesize an incident merely
+   to demonstrate the new wording. For any later rollout, re-read live runtime,
+   state and timers, validate with `--no-notify` plus a private state path, and
+   obtain fresh deployment authorization.
 2. Lesson Materials is GP-owned; do not restore the devbox probe. Retain its
    rollback copies until the separately authorized cleanup decision. Treat the
    exact phase-aware runtime files from `b06652b` as deployed on both
