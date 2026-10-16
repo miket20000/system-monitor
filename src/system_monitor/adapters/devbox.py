@@ -23,6 +23,14 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 SEVERITY_ORDER = {"ok": 0, "warning": 1, "critical": 2}
+SYSTEMD_ACTIVE_STATES = {
+    "active", "activating", "deactivating", "failed", "inactive",
+    "maintenance", "reloading",
+}
+SYSTEMD_ENABLEMENT_STATES = {
+    "alias", "bad", "disabled", "enabled", "generated", "indirect", "linked",
+    "linked-runtime", "masked", "static", "transient",
+}
 
 
 def format_telegram_notification(summary: str, host_label: str) -> str:
@@ -192,14 +200,24 @@ class Monitor:
             except OSError:
                 continue
             used_percent = round((usage.used / usage.total) * 100)
+            severity = threshold_severity(
+                used_percent,
+                self.config["thresholds"]["disk_warning_percent"],
+                self.config["thresholds"]["disk_critical_percent"],
+            )
+            notification_code, notification_context = percentage_threshold_notification(
+                "wykorzystanie dysku",
+                used_percent,
+                severity,
+                self.config["thresholds"]["disk_warning_percent"],
+                self.config["thresholds"]["disk_critical_percent"],
+            )
             self.add(
                 f"filesystem:space:{mount}",
-                threshold_severity(
-                    used_percent,
-                    self.config["thresholds"]["disk_warning_percent"],
-                    self.config["thresholds"]["disk_critical_percent"],
-                ),
+                severity,
                 f"Disk usage on {mount}: {used_percent}%",
+                notification_code=notification_code,
+                notification_context=notification_context,
             )
             try:
                 stats = os.statvfs(mount)
@@ -209,14 +227,24 @@ class Monitor:
                 inode_percent = round(
                     ((stats.f_files - stats.f_ffree) / stats.f_files) * 100
                 )
+                severity = threshold_severity(
+                    inode_percent,
+                    self.config["thresholds"]["inode_warning_percent"],
+                    self.config["thresholds"]["inode_critical_percent"],
+                )
+                notification_code, notification_context = percentage_threshold_notification(
+                    "wykorzystanie inodów",
+                    inode_percent,
+                    severity,
+                    self.config["thresholds"]["inode_warning_percent"],
+                    self.config["thresholds"]["inode_critical_percent"],
+                )
                 self.add(
                     f"filesystem:inodes:{mount}",
-                    threshold_severity(
-                        inode_percent,
-                        self.config["thresholds"]["inode_warning_percent"],
-                        self.config["thresholds"]["inode_critical_percent"],
-                    ),
+                    severity,
                     f"Inode usage on {mount}: {inode_percent}%",
+                    notification_code=notification_code,
+                    notification_context=notification_context,
                 )
 
     def check_mounts(self) -> None:
@@ -270,23 +298,36 @@ class Monitor:
             self.config["thresholds"]["memory_warning_percent"],
             self.config["thresholds"]["memory_critical_percent"],
         )
+        notification_code, notification_context = percentage_threshold_notification(
+            "wykorzystanie pamięci",
+            memory_percent,
+            memory_severity,
+            self.config["thresholds"]["memory_warning_percent"],
+            self.config["thresholds"]["memory_critical_percent"],
+        )
         self.add(
             "memory:used",
             memory_severity,
             f"Memory usage: {memory_percent}%",
+            notification_code=notification_code,
+            notification_context=notification_context,
         )
 
     def check_load(self) -> None:
         load_5m = os.getloadavg()[1]
         cpus = os.cpu_count() or 1
+        warning = cpus * self.config["thresholds"]["load_warning_multiplier"]
+        critical = cpus * self.config["thresholds"]["load_critical_multiplier"]
+        severity = threshold_severity(load_5m, warning, critical)
+        notification_code, notification_context = load_threshold_notification(
+            load_5m, cpus, severity, warning, critical
+        )
         self.add(
             "load:5m",
-            threshold_severity(
-                load_5m,
-                cpus * self.config["thresholds"]["load_warning_multiplier"],
-                cpus * self.config["thresholds"]["load_critical_multiplier"],
-            ),
+            severity,
             f"5-minute load: {load_5m:.2f} on {cpus} CPUs",
+            notification_code=notification_code,
+            notification_context=notification_context,
         )
 
     def check_reboot(self) -> None:
@@ -307,21 +348,37 @@ class Monitor:
             active = self.run_command([*prefix, "is-active", unit])
             failed = self.run_command([*prefix, "is-failed", unit])
             if active.stdout.strip() != "active" or failed.stdout.strip() == "failed":
+                active_state = normalized_systemd_state(
+                    active.stdout, SYSTEMD_ACTIVE_STATES
+                )
+                failure_state = normalized_systemd_state(
+                    failed.stdout, SYSTEMD_ACTIVE_STATES
+                )
                 self.add(
                     f"{key_prefix}:{unit}",
                     "critical",
                     f"{unit} is not healthy",
                     f"active={active.stdout.strip()}, failed={failed.stdout.strip()}",
+                    notification_code="SYSTEMD_UNIT_STATE_INVALID",
+                    notification_context={
+                        "activeState": active_state,
+                        "failureState": failure_state,
+                    },
                 )
                 continue
             if item.get("require_enabled", True):
                 enabled = self.run_command([*prefix, "is-enabled", unit])
                 if enabled.stdout.strip() not in {"enabled", "indirect"}:
+                    enablement_state = normalized_systemd_state(
+                        enabled.stdout, SYSTEMD_ENABLEMENT_STATES
+                    )
                     self.add(
                         f"{key_prefix}:{unit}",
                         "warning",
                         f"{unit} is active but not enabled",
                         enabled.stdout.strip(),
+                        notification_code="SYSTEMD_UNIT_NOT_ENABLED",
+                        notification_context={"enablementState": enablement_state},
                     )
                     continue
             self.add(f"{key_prefix}:{unit}", "ok", f"{unit} is active")
@@ -1040,6 +1097,51 @@ def threshold_severity(value: float, warning: float, critical: float) -> str:
     if value >= warning:
         return "warning"
     return "ok"
+
+
+def crossed_threshold(severity: str, warning: float, critical: float) -> float:
+    if severity == "critical":
+        return critical
+    if severity == "warning":
+        return warning
+    raise ValueError("Healthy observation has no crossed threshold")
+
+
+def percentage_threshold_notification(
+    resource: str,
+    observed: int,
+    severity: str,
+    warning: int,
+    critical: int,
+) -> tuple[str, dict[str, Any] | None]:
+    if severity == "ok":
+        return "", None
+    return "RESOURCE_PERCENT_THRESHOLD_EXCEEDED", {
+        "resource": resource,
+        "observedPercent": observed,
+        "thresholdPercent": int(crossed_threshold(severity, warning, critical)),
+    }
+
+
+def load_threshold_notification(
+    observed: float,
+    cpu_count: int,
+    severity: str,
+    warning: float,
+    critical: float,
+) -> tuple[str, dict[str, Any] | None]:
+    if severity == "ok":
+        return "", None
+    return "LOAD_THRESHOLD_EXCEEDED", {
+        "observedLoad": f"{observed:.2f}",
+        "thresholdLoad": f"{crossed_threshold(severity, warning, critical):.2f}",
+        "cpuCount": cpu_count,
+    }
+
+
+def normalized_systemd_state(value: str, allowed: set[str]) -> str:
+    normalized = value.strip().lower()
+    return normalized if normalized in allowed else "unknown"
 
 
 def service_result_failed(result: str, exit_status: str) -> bool:

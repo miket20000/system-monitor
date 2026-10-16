@@ -28,6 +28,38 @@ TYPE_WORDS = re.compile(
     r"\b(endpoint|service|timer|cron|heartbeat|filesystem|database)\b", re.I
 )
 MESSAGE_CONTEXT_FIELDS = {
+    "RESOURCE_PERCENT_THRESHOLD_EXCEEDED": {
+        "resource": {
+            "wykorzystanie dysku",
+            "wykorzystanie inodów",
+            "wykorzystanie pamięci",
+            "wykorzystanie swap",
+        },
+        "observedPercent": "nonnegative_integer",
+        "thresholdPercent": "nonnegative_integer",
+    },
+    "LOAD_THRESHOLD_EXCEEDED": {
+        "observedLoad": "nonnegative_decimal",
+        "thresholdLoad": "nonnegative_decimal",
+        "cpuCount": "positive_integer",
+    },
+    "SYSTEMD_UNIT_STATE_INVALID": {
+        "activeState": {
+            "active", "activating", "deactivating", "failed", "inactive",
+            "maintenance", "reloading", "unknown",
+        },
+        "failureState": {
+            "active", "activating", "deactivating", "failed", "inactive",
+            "maintenance", "reloading", "unknown",
+        },
+    },
+    "SYSTEMD_UNIT_NOT_ENABLED": {
+        "enablementState": {
+            "alias", "bad", "disabled", "enabled", "generated", "indirect",
+            "linked", "linked-runtime", "masked", "static", "transient",
+            "unknown",
+        },
+    },
     "ONLINE_COMPILER_SCHEDULER_BLOCKED": {
         "environmentStatus": {
             "OPEN", "CLOSED", "STARTING", "STOPPING", "ACTIVE", "HIBERNATED",
@@ -173,6 +205,16 @@ class PriorityRegistry:
             if validator == "nonnegative_integer":
                 if type(value) is not int or value < 0 or value > 10_000_000:
                     raise ValueError("Invalid notification integer context")
+            elif validator == "positive_integer":
+                if type(value) is not int or value < 1 or value > 10_000_000:
+                    raise ValueError("Invalid notification integer context")
+            elif validator == "nonnegative_decimal":
+                if (
+                    not isinstance(value, str)
+                    or re.fullmatch(r"(?:0|[1-9][0-9]{0,6})(?:\.[0-9]{1,2})?", value)
+                    is None
+                ):
+                    raise ValueError("Invalid notification decimal context")
             elif value not in validator:
                 raise ValueError("Invalid notification enum context")
             clean_context[field] = value

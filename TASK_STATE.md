@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-13 08:31 CEST (Europe/Warsaw)
+Updated: 2026-10-16 17:05 CEST (Europe/Warsaw)
 
 ## Goal
 
@@ -8,10 +8,20 @@ Make `system-monitor` the sole owner of Online Compiler alerts, reminders and
 recovery while the schedulers move from devbox to GP. Preserve the two monitor
 runtimes, existing incident identities and independent availability and
 scheduler-health signals. Keep host ownership accurate when other services move
-between devbox and GP without clearing or replaying monitor state.
+between devbox and GP without clearing or replaying monitor state. Keep
+user-facing notifications concise but specific enough to identify the observed
+value, crossed threshold or invalid service state.
 
 ## Current implementation
 
+- The source candidate emits detailed, allowlisted resource and service
+  notifications. Disk, inode, RAM, swap and five-minute load alerts include the
+  observed value and the warning or critical threshold actually crossed; load
+  also includes the CPU count used to calculate the threshold. Unit-health
+  alerts, including GNOME Remote Desktop, include normalized `systemd` active,
+  failure or enablement states. Raw command output remains excluded. Thresholds,
+  confirmation cycles, reminders and incident identities are unchanged. This
+  candidate is not deployed to either runtime.
 - Lesson Materials monitoring moved from the retired devbox user timer to GP's
   `lesson-materials-sync.timer`/service with unchanged 18/26-hour thresholds.
   The devbox profile no longer contains the old probe; the GP profile and LOW
@@ -151,6 +161,11 @@ between devbox and GP without clearing or replaying monitor state.
 
 ## Validation
 
+- PASS: the detailed-notification source candidate passed the complete suite:
+  `236 tests`, `50 subtests`. JSON parsing, Python bytecode compilation and
+  `git diff --check` passed. Coverage includes exact load value/threshold text,
+  warning and critical threshold selection on both adapters, normalized GNOME
+  Remote Desktop/systemd states and rejection of untrusted decimal context.
 - PASS: 181 shared and imported unit tests: 23 common, 60 devbox legacy and 98
   GP legacy. Coverage includes changing durable evidence IDs, confirmed
   recovery and reopen, six-hour MEDIUM reminders, pending-event refresh,
@@ -424,28 +439,33 @@ between devbox and GP without clearing or replaying monitor state.
 
 ## START HERE
 
-1. Read this file and check all three repository worktrees before editing.
-   Lesson Materials is now GP-owned; do not restore the devbox probe. After its
-   first natural application cycle at 15:00 CEST, verify the next GP monitor
-   cycle before the retired devbox application is deleted.
-   Treat the exact phase-aware runtime files from `b06652b` as deployed on both
+1. Read this file and inspect the current repository worktree. Only the main
+   worktree at `/home/miket/coding/system-monitor` was registered on 2026-10-16;
+   do not assume historical worktrees still exist. The detailed-notification
+   candidate is source-only: before any deployment, re-read the live runtime,
+   production state and timers, use a private state copy with `--no-notify`, and
+   obtain explicit deployment authorization. Deploy devbox first and wait for
+   two natural cycles before considering GP.
+2. Lesson Materials is GP-owned; do not restore the devbox probe. Retain its
+   rollback copies until the separately authorized cleanup decision. Treat the
+   exact phase-aware runtime files from `b06652b` as deployed on both
    monitor runtimes and retain the historical 10:40 false-reminder failure from
    `f7bd091`; do not replay or delete it.
-2. Preserve current state v3 without clearing or replacement. The corrected
+3. Preserve current state v3 without clearing or replacement. The corrected
    owner-requested LOW digest cleared all pending LOW events on 2026-10-07; do
    not replay it or reset `last_low_digest_date`.
-3. Keep GP-local scheduler checks and the devbox three-cycle dead-man probe.
+4. Keep GP-local scheduler checks and the devbox three-cycle dead-man probe.
    Any shadow validation must use both `--no-notify` and a private state path;
    do not manufacture a failure to test notification delivery.
    The 2026-10-07 Next Dev environment, freshness and scheduler incidents are
    recovered and inactive; do not replay or delete their history.
-4. The first 24-hour five-minute-cadence PROD observation and the phase-aware
+5. The first 24-hour five-minute-cadence PROD observation and the phase-aware
    rollout are complete and passed. The deployed runtime keeps 300 seconds for
    steady cycles, uses 900 seconds for `STARTING`/`STOPPING`, retains 1860
    seconds for overdue and keeps the 600/900-second idle thresholds. Verify the
    next natural opening/closing transition without synthesizing an incident;
    never classify `CYCLE_SLOW` as scheduler failure.
-5. Preserve installed entrypoints, state paths, environment permissions and
+6. Preserve installed entrypoints, state paths, environment permissions and
    the three-channel message contract. Keep GP Monitor one minute after the
    mirror cadence so completed mirror failures remain observable. Retain the
    two 2026-10-07 network-disk reconciliation backups until an explicit
@@ -453,10 +473,10 @@ between devbox and GP without clearing or replaying monitor state.
    rollback backup until the owner decides their retention. Investigate
    application incidents in their owning repository and never clear monitor
    state to force recovery.
-6. Keep Minecraft Bedrock retired: do not restore its two devbox profile
+7. Keep Minecraft Bedrock retired: do not restore its two devbox profile
    entries, re-enable its timers or replay the removed LOW recovery event
    without explicit owner authorization. Runtime data under
    `/opt/minecraft-bedrock` remains preserved.
-7. Keep Ads Dashboard, Google API and Meta API retired on GP. Do not restore
+8. Keep Ads Dashboard, Google API and Meta API retired on GP. Do not restore
    their probes or state unless the owner separately authorizes reactivation of
    the corresponding services and public routes.

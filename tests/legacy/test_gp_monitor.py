@@ -769,6 +769,49 @@ class ConfigCoverageTests(unittest.TestCase):
         )
 
 
+class ResourceNotificationContextTests(unittest.TestCase):
+    def make_monitor(self) -> MODULE.Monitor:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        config["state_file"] = str(Path(temporary.name) / "state.json")
+        return MODULE.Monitor(config, notify=False)
+
+    def test_load_alert_identifies_the_crossed_warning_threshold(self) -> None:
+        monitor = self.make_monitor()
+        with (
+            patch.object(MODULE.os, "getloadavg", return_value=(10.0, 14.25, 9.0)),
+            patch.object(MODULE.os, "cpu_count", return_value=8),
+        ):
+            monitor.check_load()
+
+        self.assertEqual(monitor.results[0].severity, "warning")
+        self.assertEqual(
+            monitor.results[0].notification_context,
+            {
+                "observedLoad": "14.25",
+                "thresholdLoad": "12.00",
+                "cpuCount": 8,
+            },
+        )
+
+    def test_failed_service_reports_normalized_systemd_states(self) -> None:
+        monitor = self.make_monitor()
+        monitor.config["system_services"] = ["gnome-remote-desktop.service"]
+
+        def run(command, timeout=15):
+            value = "failed\n" if command[1] in {"is-active", "is-failed"} else ""
+            return subprocess.CompletedProcess(command, 0, value, "")
+
+        monitor.run_command = run
+        monitor.check_system_services()
+
+        self.assertEqual(
+            monitor.results[0].notification_context,
+            {"activeState": "failed", "failureState": "failed"},
+        )
+
+
 class TelegramNotificationTests(unittest.TestCase):
     def test_format_preserves_sanitized_batch_lines(self) -> None:
         self.assertEqual(

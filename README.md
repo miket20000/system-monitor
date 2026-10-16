@@ -69,6 +69,11 @@ channel carries the priority; message text uses only `[NEW]`, `[REMINDER]` and
 Service name : problem : devbox|gp
 ```
 
+Resource alerts include the current measurement and the warning or critical
+threshold that was crossed. Unit-health alerts include normalized systemd
+active/failure states. Only allowlisted numeric values and state names reach the
+message; raw command output and probe payloads remain excluded.
+
 Tracked configuration contains only the environment variable names. Bot token
 and chat IDs remain in the protected runtime environment files.
 

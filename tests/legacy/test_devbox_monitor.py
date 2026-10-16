@@ -516,6 +516,14 @@ SwapFree: 0 kB
             [(result.key, result.severity) for result in monitor.results],
             [("memory:used", "warning")],
         )
+        self.assertEqual(
+            monitor.results[0].notification_context,
+            {
+                "resource": "wykorzystanie pamięci",
+                "observedPercent": 90,
+                "thresholdPercent": 90,
+            },
+        )
 
     def test_ram_at_95_percent_is_critical(self):
         monitor = self.make_monitor(
@@ -537,6 +545,32 @@ SwapFree: 0 kB
         self.assertEqual(
             [(result.key, result.severity) for result in monitor.results],
             [("memory:used", "critical")],
+        )
+
+    def test_load_alert_identifies_the_crossed_critical_threshold(self):
+        monitor = self.make_monitor(
+            {
+                "thresholds": {
+                    **self.make_monitor().config["thresholds"],
+                    "load_warning_multiplier": 1.5,
+                    "load_critical_multiplier": 3,
+                }
+            }
+        )
+        with (
+            patch.object(MODULE.os, "getloadavg", return_value=(30.0, 27.42, 20.0)),
+            patch.object(MODULE.os, "cpu_count", return_value=8),
+        ):
+            monitor.check_load()
+
+        self.assertEqual(monitor.results[0].severity, "critical")
+        self.assertEqual(
+            monitor.results[0].notification_context,
+            {
+                "observedLoad": "27.42",
+                "thresholdLoad": "24.00",
+                "cpuCount": 8,
+            },
         )
 
 
@@ -563,6 +597,10 @@ class UnitTests(MonitorTestCase):
         monitor.run_command = run
         monitor.check_user_services()
         self.assertEqual(monitor.results[0].severity, "critical")
+        self.assertEqual(
+            monitor.results[0].notification_context,
+            {"activeState": "inactive", "failureState": "inactive"},
+        )
 
 
 class VpnTests(MonitorTestCase):

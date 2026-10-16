@@ -83,6 +83,50 @@ class FormatTests(unittest.TestCase):
         self.assertEqual(text.count("[RESOLVED]"), 1)
         self.assertNotIn("[REMINDER]", text)
 
+    def test_threshold_and_unit_state_messages_include_safe_details(self):
+        registry = PriorityRegistry.load(ROOT / "config/priorities.json")
+
+        load = registry.display(
+            "load:5m",
+            "5-minute load: 27.42 on 8 CPUs",
+            "LOAD_THRESHOLD_EXCEEDED",
+            {
+                "observedLoad": "27.42",
+                "thresholdLoad": "24.00",
+                "cpuCount": 8,
+            },
+        )
+        service = registry.display(
+            "user-service:gnome-remote-desktop.service",
+            "gnome-remote-desktop.service is not healthy",
+            "SYSTEMD_UNIT_STATE_INVALID",
+            {"activeState": "failed", "failureState": "failed"},
+        )
+
+        self.assertEqual(
+            load.problem,
+            "5-minutowe obciążenie wynosi 27.42; przekroczony próg: 24.00 (8 CPU)",
+        )
+        self.assertEqual(
+            service.problem,
+            "stan aktywności: failed; wynik kontroli błędu: failed; wymagany stan: active",
+        )
+
+    def test_threshold_context_rejects_untrusted_decimal_text(self):
+        registry = PriorityRegistry.load(ROOT / "config/priorities.json")
+
+        with self.assertRaises(ValueError):
+            registry.display(
+                "load:5m",
+                "unhealthy",
+                "LOAD_THRESHOLD_EXCEEDED",
+                {
+                    "observedLoad": "27.42; token",
+                    "thresholdLoad": "24.00",
+                    "cpuCount": 8,
+                },
+            )
+
 
 class NotificationEngineTests(unittest.TestCase):
     def setUp(self):
@@ -118,6 +162,28 @@ class NotificationEngineTests(unittest.TestCase):
         self.assertEqual(self.sender.calls, [])
         self.cycle(failure)
         self.assertEqual(self.sender.calls[0][0], 2)
+
+    def test_load_notification_names_observed_value_and_crossed_threshold(self):
+        failure = result(
+            "load:5m",
+            "critical",
+            "5-minute load: 27.42 on 8 CPUs",
+            notification_code="LOAD_THRESHOLD_EXCEEDED",
+            notification_context={
+                "observedLoad": "27.42",
+                "thresholdLoad": "24.00",
+                "cpuCount": 8,
+            },
+        )
+
+        self.cycle(failure)
+        self.cycle(failure)
+
+        self.assertEqual(
+            self.sender.calls[0][1],
+            "[NEW]\nObciążenie maszyny : 5-minutowe obciążenie wynosi 27.42; "
+            "przekroczony próg: 24.00 (8 CPU) : gp",
+        )
 
     def test_durable_failure_opens_incident_after_one_cycle(self):
         failure = result(

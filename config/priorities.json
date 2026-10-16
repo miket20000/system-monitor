@@ -2,6 +2,10 @@
   "schema_version": 1,
   "default_priority": 2,
   "message_codes": {
+    "RESOURCE_PERCENT_THRESHOLD_EXCEEDED": "{resource} wynosi {observedPercent}%; przekroczony próg: {thresholdPercent}%",
+    "LOAD_THRESHOLD_EXCEEDED": "5-minutowe obciążenie wynosi {observedLoad}; przekroczony próg: {thresholdLoad} ({cpuCount} CPU)",
+    "SYSTEMD_UNIT_STATE_INVALID": "stan aktywności: {activeState}; wynik kontroli błędu: {failureState}; wymagany stan: active",
+    "SYSTEMD_UNIT_NOT_ENABLED": "usługa działa, ale stan autostartu to {enablementState}; wymagany: enabled lub indirect",
     "ONLINE_COMPILER_SCHEDULER_BLOCKED": "scheduler zablokowany; HOLD={holdCount}; ostatni stan środowiska: {environmentStatus}",
     "ONLINE_COMPILER_SCHEDULER_DEGRADED": "scheduler ma stan {reasonCode}; ostatni stan środowiska: {environmentStatus}",
     "ONLINE_COMPILER_STATE_STALE": "brak świeżego stanu schedulera",
