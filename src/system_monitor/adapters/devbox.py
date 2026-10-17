@@ -938,6 +938,31 @@ class Monitor:
             name = check["name"]
             label = check.get("label", name)
             key = f"daily-success:{name}"
+            provider_config_file = check.get("provider_config_file")
+            if provider_config_file:
+                try:
+                    providers = json.loads(
+                        Path(provider_config_file).read_text(encoding="utf-8")
+                    )["providers"]
+                    provider = next(
+                        item for item in providers
+                        if item.get("name") == check["provider_name"]
+                        and item.get("accountId") == check["account_id"]
+                    )
+                    if provider["enabled"] is not True:
+                        self.add(key, "critical", f"{label} is disabled")
+                        continue
+                except (
+                    OSError,
+                    UnicodeError,
+                    ValueError,
+                    KeyError,
+                    StopIteration,
+                    TypeError,
+                    AttributeError,
+                ):
+                    self.add(key, "critical", f"{label} configuration is unreadable")
+                    continue
             pending_path = Path(check["pending_file"])
             if pending_path.exists():
                 self.add(

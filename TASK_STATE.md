@@ -41,7 +41,11 @@ two DNS hosts (IPv4/IPv6, UDP/TCP).
 - Retired services stay retired: Minecraft Bedrock and AnyDesk on devbox;
   Ads Dashboard, Google API and Meta API on GP. Lesson Materials sync is
   GP-owned with 18/26-hour freshness thresholds. Password Reset LOW alerts
-  keep per-account technical keys with one grouped lifecycle.
+  keep per-account technical keys with one grouped lifecycle. The Canva3
+  daily-success check additionally reads its `enabled` flag from the local
+  Password Reset provider configuration. A disabled account remains critical
+  even when a recent success date is recorded; invalid configuration fails
+  closed without reading credentials.
 - Telegram token and chat IDs live only in protected runtime environment
   files. Notification text excludes raw command output, URLs and payloads.
 
@@ -82,6 +86,18 @@ two DNS hosts (IPv4/IPv6, UDP/TCP).
   all eight external DNS checks remained `ok` and no DNS proxy notification
   was pending. Together with the devbox 18:20 cycle and absence of new local
   monitor journal entries, the cutover showed no duplicate DNS alerts.
+- The Canva3 disabled-account correction passed 244 tests and 50 subtests,
+  JSON/Python compilation and diff checks. The previous installed devbox
+  adapter/profile matched `HEAD`; a private rollback snapshot is at
+  `/home/miket/.local/state/system-monitor-rollbacks/20261017-canva3-disabled-before`.
+  The reviewed adapter/profile were installed byte-for-byte with the timer
+  briefly stopped; production incident state was preserved. Natural 20:15
+  CEST monitoring retained the active Canva3 incident while the account was
+  disabled despite its recorded success date. After independent credential
+  checks and re-enable, natural 20:20 and 20:25 cycles were `ok` and closed
+  it. Restic service/endpoint alarms were also closed by natural 19:50 and
+  19:55 cycles. The Social Media weekly-result alarm remained active at 20:25
+  while its separate owner workflow was still running.
 
 ## Constraints and known limits
 
@@ -94,7 +110,9 @@ two DNS hosts (IPv4/IPv6, UDP/TCP).
   FAIL; the later baseline repair is deployed. Do not replay or erase it.
 - For any later code rollout, compare source with installed bytes and state;
   keep devbox/GP deployment scopes separate. The private snapshot above is
-  the rollback source for this DNS integration.
+  the rollback source for this DNS integration. The Canva3 monitor snapshot
+  is separate. Do not treat a Password Reset success date alone as proof of
+  continued account access; preserve independent login failures.
 
 ## Important files
 
@@ -118,3 +136,9 @@ two DNS hosts (IPv4/IPv6, UDP/TCP).
 3. Preserve the private DNS and devbox rollback snapshots. A future change to
    code, profile or priorities needs a fresh installed-byte, state and timer
    readback before deployment; GP remains a separate runtime.
+4. If Canva3 is held after a failed independent login check, read the
+   Password Reset module's `TASK_STATE.md` and production provider config.
+   Keep its daily-success incident active until the owner workflow and two
+   natural devbox cycles confirm recovery. The Social Media result incident
+   also requires a completed owner workflow and natural cycles; do not edit
+   monitor state to close it.

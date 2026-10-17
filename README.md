@@ -48,6 +48,13 @@ The devbox profile has one bounded read-only dead-man probe for GP. It executes
 a fixed SSH `systemctl show gp-monitor.service` command and is classified as a
 network observation, so a new alert requires three consecutive failed cycles.
 
+The Canva3 daily-success check also reads that account's `enabled` flag from
+the local Password Reset provider configuration. A disabled account stays
+critical even when its state file records success today. This prevents a
+temporary hold after a failed independent login check from closing the
+incident based only on the saved success date. An unreadable provider
+configuration also fails closed; no credential value is read.
+
 The devbox profile also reads `dnsproxy1` and `dnsproxy2` over the verified
 SSH aliases. Each host runs a bounded JSON probe from the DNS proxy repository;
 it performs the former local host, container, firewall, DNS and sync-freshness

@@ -215,6 +215,9 @@
     {
       "name": "password-reset-canva3",
       "label": "Password Reset canva3",
+      "provider_config_file": "/home/miket/coding/scripts-devbox/password-reset/config/default.json",
+      "provider_name": "canva",
+      "account_id": "canva3",
       "state_file": "/home/miket/.local/state/password-reset/canva-canva3.state.json",
       "pending_file": "/home/miket/.local/state/password-reset/canva-canva3.pending",
       "last_success_local_date_field": "last_success_local_date",

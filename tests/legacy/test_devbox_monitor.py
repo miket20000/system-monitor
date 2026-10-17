@@ -1270,6 +1270,30 @@ class DailySuccessTests(MonitorTestCase):
         monitor.check_daily_successes()
         self.assertEqual(monitor.results[0].severity, "ok")
 
+    def test_disabled_account_does_not_resolve_recent_success(self):
+        monitor, state_path, _pending = self.daily_monitor(last_success="2026-09-07")
+        config_path = state_path.with_name("provider-config.json")
+        check = monitor.config["daily_success_checks"][0]
+        check.update({
+            "provider_config_file": str(config_path),
+            "provider_name": "canva",
+            "account_id": "canva3",
+        })
+        monitor.now = self.epoch("2026-09-07T12:00:00")
+        config_path.write_text(json.dumps({"providers": [
+            {"name": "canva", "accountId": "canva3", "enabled": False}
+        ]}), encoding="utf-8")
+        monitor.check_daily_successes()
+        self.assertEqual(monitor.results[0].severity, "critical")
+        self.assertIn("disabled", monitor.results[0].summary)
+
+        config_path.write_text(json.dumps({"providers": [
+            {"name": "canva", "accountId": "canva3", "enabled": True}
+        ]}), encoding="utf-8")
+        monitor.results = []
+        monitor.check_daily_successes()
+        self.assertEqual(monitor.results[0].severity, "ok")
+
     def test_one_missed_window_warns(self):
         monitor, _state, _pending = self.daily_monitor(
             last_success="2026-09-06", last_result="SSH_UNREACHABLE"
