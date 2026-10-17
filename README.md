@@ -48,6 +48,17 @@ The devbox profile has one bounded read-only dead-man probe for GP. It executes
 a fixed SSH `systemctl show gp-monitor.service` command and is classified as a
 network observation, so a new alert requires three consecutive failed cycles.
 
+The devbox profile also reads `dnsproxy1` and `dnsproxy2` over the verified
+SSH aliases. Each host runs a bounded JSON probe from the DNS proxy repository;
+it performs the former local host, container, firewall, DNS and sync-freshness
+checks without sending Telegram messages or writing incident state. Devbox
+tracks reboot and container restart counters, using stable
+`dnsproxy:<host>:<check>` keys. Failed SSH and invalid JSON have separate
+visibility alerts. Missing samples retain earlier DNS proxy incidents instead
+of treating the missing results as recovery. DNS availability, sync freshness,
+firewall protection and probe visibility are routed to HIGH. GP keeps its
+independent public IPv4 and IPv6 DNS checks over UDP and TCP.
+
 Timer-backed oneshot services keep their last completed result while a new
 invocation is active. A running invocation is not recovery evidence; only a
 completed healthy result can advance the two-cycle recovery confirmation.
@@ -58,6 +69,10 @@ Before a rollout, copy the profile, unit, environment file, installed code and
 state into a private timestamped rollback directory. Run a shadow cycle with
 both `--no-notify` and a private `--state-file`; `--no-notify` alone is not
 read-only. Deploy devbox first and GP only after two successful natural cycles.
+For the DNS proxy migration, install and verify the host probes before enabling
+their devbox profile entries. Observe two natural devbox cycles with private
+state before retiring either host's local timer. Retain each host's local
+monitor configuration and state in a private rollback snapshot.
 
 ## Notification contract
 

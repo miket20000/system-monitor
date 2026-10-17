@@ -18,6 +18,48 @@
   },
   "assignments": [
     {
+      "patterns": ["dnsproxy:dnsproxy1:probe-*"],
+      "priority": 1,
+      "name": "DNS Proxy 1 — widoczność",
+      "problem": "brak wiarygodnego odczytu stanu",
+      "resolved": "odczyt stanu ponownie działa"
+    },
+    {
+      "patterns": ["dnsproxy:dnsproxy2:probe-*"],
+      "priority": 1,
+      "name": "DNS Proxy 2 — widoczność",
+      "problem": "brak wiarygodnego odczytu stanu",
+      "resolved": "odczyt stanu ponownie działa"
+    },
+    {
+      "patterns": ["dnsproxy:dnsproxy1:dns:*", "dnsproxy:dnsproxy1:sync:*", "dnsproxy:dnsproxy1:firewall:*", "dnsproxy:dnsproxy1:network:ipv6:*", "dnsproxy:dnsproxy1:container:dnsproxy:state", "dnsproxy:dnsproxy1:container:dnsproxy:bindings"],
+      "priority": 1,
+      "name": "DNS Proxy 1",
+      "problem": "usługa DNS lub synchronizacja adresów nie działa prawidłowo",
+      "resolved": "usługa DNS i synchronizacja adresów działają prawidłowo"
+    },
+    {
+      "patterns": ["dnsproxy:dnsproxy2:dns:*", "dnsproxy:dnsproxy2:sync:*", "dnsproxy:dnsproxy2:firewall:*", "dnsproxy:dnsproxy2:network:ipv6:*", "dnsproxy:dnsproxy2:container:dnsproxy:state", "dnsproxy:dnsproxy2:container:dnsproxy:bindings"],
+      "priority": 1,
+      "name": "DNS Proxy 2",
+      "problem": "usługa DNS lub synchronizacja adresów nie działa prawidłowo",
+      "resolved": "usługa DNS i synchronizacja adresów działają prawidłowo"
+    },
+    {
+      "patterns": ["dnsproxy:dnsproxy1:*"],
+      "priority": 2,
+      "name": "DNS Proxy 1",
+      "problem": "stan hosta nie jest prawidłowy",
+      "resolved": "stan hosta ponownie jest prawidłowy"
+    },
+    {
+      "patterns": ["dnsproxy:dnsproxy2:*"],
+      "priority": 2,
+      "name": "DNS Proxy 2",
+      "problem": "stan hosta nie jest prawidłowy",
+      "resolved": "stan hosta ponownie jest prawidłowy"
+    },
+    {
       "patterns": ["daily-success:password-reset-primary"],
       "priority": 3,
       "name": "Password Reset",

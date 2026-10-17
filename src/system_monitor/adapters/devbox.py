@@ -15,6 +15,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import uuid
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -163,6 +164,126 @@ class Monitor:
             notification_class="network",
             notification_code="GP_MONITOR_DEAD_MAN" if not healthy else "",
         )
+
+    def check_dnsproxies(self) -> None:
+        """Import bounded, read-only host observations without treating gaps as recovery."""
+        for check in self.config.get("dnsproxy_hosts", []):
+            host = check["host"]
+            prefix = f"dnsproxy:{host}:"
+            command = [
+                "/usr/bin/ssh", "-F", check["ssh_config"],
+                "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
+                "-o", "ClearAllForwardings=yes", "-o", "ConnectTimeout=10",
+                "-o", "ConnectionAttempts=1", "-T", host,
+                "sudo", "-n", "/usr/local/lib/dnsproxy-monitor/dnsproxy-monitor.py",
+                "--config", "/etc/dnsproxy-monitor/config.json", "--probe",
+            ]
+            try:
+                result = self.run_command(command, timeout=90)
+            except (OSError, subprocess.TimeoutExpired):
+                self.add(prefix + "probe-transport", "critical",
+                         "DNS proxy probe transport failed", notification_class="network")
+                continue
+            if result.returncode != 0:
+                self.add(prefix + "probe-transport", "critical",
+                         "DNS proxy probe transport failed", notification_class="network")
+                continue
+            self.add(prefix + "probe-transport", "ok", "DNS proxy probe is reachable",
+                     notification_class="network")
+            try:
+                if len(result.stdout) > 65536:
+                    raise ValueError("Probe response too large")
+                payload = json.loads(result.stdout)
+                if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+                    raise ValueError("Unsupported probe response")
+                if payload.get("host") != host:
+                    raise ValueError("Probe host mismatch")
+                boot_id = str(uuid.UUID(payload["boot_id"]))
+                if boot_id != payload["boot_id"]:
+                    raise ValueError("Noncanonical boot ID")
+                restarts = payload["container_restart_count"]
+                if restarts is not None and (type(restarts) is not int or restarts < 0):
+                    raise ValueError("Invalid restart count")
+                checks = payload["checks"]
+                if not isinstance(checks, list) or not checks or len(checks) > 100:
+                    raise ValueError("Invalid probe checks")
+                seen: set[str] = set()
+                validated: list[dict[str, str]] = []
+                for item in checks:
+                    if not isinstance(item, dict):
+                        raise ValueError("Invalid probe check")
+                    key = item.get("key")
+                    severity = item.get("severity")
+                    summary = item.get("summary")
+                    if (
+                        not isinstance(key, str)
+                        or not key
+                        or len(key) > 120
+                        or not all(c.isascii() and (c.isalnum() or c in ":/._-") for c in key)
+                        or key in seen
+                        or key in {"host:reboot", "container:dnsproxy:restarts"}
+                        or severity not in SEVERITY_ORDER
+                        or not isinstance(summary, str)
+                        or len(summary) > 300
+                    ):
+                        raise ValueError("Invalid probe check fields")
+                    seen.add(key)
+                    validated.append({"key": key, "severity": severity, "summary": summary})
+                required = {
+                    "filesystem:space:/", "filesystem:inodes:/",
+                    "memory:used", "load:5m", "sync:cron-definition",
+                    "sync:freshness", "dns:ipv4:udp", "dns:ipv4:tcp",
+                    "dns:ipv6:udp", "dns:ipv6:tcp",
+                    "service:docker.service", "service:cron.service",
+                    "service:ssh.service", "service:systemd-timesyncd.service",
+                    "firewall:ipv6-dns-acl",
+                }
+                if not required <= seen:
+                    raise ValueError("Incomplete probe checks")
+                alternatives = (
+                    ({"network:addresses"}, {
+                        "network:ipv4:address", "network:ipv6:address",
+                        "network:ipv4:default-route", "network:ipv6:default-route",
+                    }),
+                    ({"container:dnsproxy"}, {
+                        "container:dnsproxy:state", "container:dnsproxy:image",
+                        "container:dnsproxy:bindings",
+                    }),
+                    ({"firewall:docker-user"}, {
+                        "firewall:drop", "firewall:tcp:53", "firewall:udp:53",
+                    }),
+                )
+                if any(not any(option <= seen for option in group) for group in alternatives):
+                    raise ValueError("Incomplete probe check group")
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                self.add(prefix + "probe-payload", "critical",
+                         "DNS proxy probe returned invalid data", notification_class="durable")
+                continue
+
+            self.add(prefix + "probe-payload", "ok", "DNS proxy probe data is valid")
+            previous = self.state.setdefault("dnsproxy_observations", {}).get(host, {})
+            previous_boot = previous.get("boot_id")
+            rebooted = bool(previous_boot and previous_boot != boot_id)
+            self.add(prefix + "host:reboot", "warning" if rebooted else "ok",
+                     "DNS proxy host rebooted" if rebooted else "No new DNS proxy reboot",
+                     notification_class="durable" if rebooted else "sampled")
+            previous_count = previous.get("container_restart_count")
+            if restarts is not None:
+                restarted = (
+                    previous_boot == boot_id
+                    and type(previous_count) is int
+                    and restarts > previous_count
+                )
+                self.add(prefix + "container:dnsproxy:restarts",
+                         "warning" if restarted else "ok",
+                         "DNS proxy container restarted" if restarted else "No new DNS proxy container restart",
+                         notification_class="durable" if restarted else "sampled")
+            for item in validated:
+                self.add(prefix + item["key"], item["severity"], item["summary"])
+            self.state["dnsproxy_observations"][host] = {
+                "boot_id": boot_id,
+                "container_restart_count": restarts if restarts is not None else previous_count,
+            }
 
     def check_filesystems(self) -> None:
         mounts: list[str] = []
@@ -1089,6 +1210,7 @@ class Monitor:
         self.check_daily_successes()
         self.check_http()
         self.check_gp_dead_man()
+        self.check_dnsproxies()
 
 
 def threshold_severity(value: float, warning: float, critical: float) -> str:

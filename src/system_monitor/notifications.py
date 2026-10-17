@@ -330,6 +330,7 @@ class NotificationEngine:
         medium_reminder_seconds: int = 21600,
         suppressed_recovery_keys: Iterable[str] = (),
         suppressed_key_prefixes: Iterable[str] = (),
+        retain_missing_prefixes: Iterable[str] = (),
     ) -> None:
         if host not in {"devbox", "gp"}:
             raise ValueError("Unsupported host label")
@@ -354,6 +355,7 @@ class NotificationEngine:
         self.medium_reminder_seconds = medium_reminder_seconds
         self.suppressed_recovery_keys = frozenset(suppressed_recovery_keys)
         self.suppressed_key_prefixes = tuple(suppressed_key_prefixes)
+        self.retain_missing_prefixes = tuple(retain_missing_prefixes)
 
     @staticmethod
     def _pending_id(event: dict[str, Any]) -> str:
@@ -715,7 +717,11 @@ class NotificationEngine:
             )
 
         for key in list(checks):
-            if key not in current_keys and self.now - float(checks[key].get("last_seen", 0)) > 86400:
+            if (
+                key not in current_keys
+                and not any(key.startswith(prefix) for prefix in self.retain_missing_prefixes)
+                and self.now - float(checks[key].get("last_seen", 0)) > 86400
+            ):
                 del checks[key]
 
         self._reconcile_notification_groups(state, checks)

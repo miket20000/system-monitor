@@ -76,6 +76,7 @@ def main(argv: list[str] | None = None) -> int:
         medium_reminder_seconds=int(notification_policy.get("reminder_seconds", 21600)),
         suppressed_recovery_keys=notification_policy.get("suppressed_recovery_keys", []),
         suppressed_key_prefixes=notification_policy.get("suppressed_key_prefixes", []),
+        retain_missing_prefixes=notification_policy.get("retain_missing_prefixes", []),
     )
     engine.process(monitor.state, monitor.results)
     monitor.save_state()
