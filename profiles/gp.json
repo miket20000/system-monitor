@@ -139,6 +139,12 @@
   ],
   "system_timers": [
     {
+      "unit": "scratch-cg-crm-catalog.timer",
+      "service": "scratch-cg-crm-catalog.service",
+      "warning_hours": 1,
+      "critical_hours": 1.5
+    },
+    {
       "unit": "lesson-materials-sync.timer",
       "service": "lesson-materials-sync.service",
       "warning_hours": 18,

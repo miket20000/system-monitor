@@ -18,6 +18,13 @@
   },
   "assignments": [
     {
+      "patterns": ["system-timer:scratch-cg-crm-catalog.timer", "system-service:scratch-cg-crm-catalog.service:result"],
+      "priority": 2,
+      "name": "Katalog kont CRM na GP",
+      "problem": "synchronizacja katalogu nie zakończyła się poprawnie",
+      "resolved": "synchronizacja katalogu ponownie działa"
+    },
+    {
       "patterns": ["dnsproxy:dnsproxy1:probe-*"],
       "priority": 1,
       "name": "DNS Proxy 1 — widoczność",

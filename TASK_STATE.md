@@ -99,6 +99,11 @@ two DNS hosts (IPv4/IPv6, UDP/TCP).
   19:55 cycles. The Social Media weekly-result alarm remained active at 20:25
   while its separate owner workflow was still running.
 
+## GP CRM account catalog monitor (2026-10-22; source only)
+
+- The GP profile now includes `scratch-cg-crm-catalog.timer` and its oneshot service result. It warns after 1 hour without a completed run and becomes critical after 1.5 hours; a failed service result is critical immediately. The catalog check routes to MEDIUM. JSON validation, direct priority readback and two focused existing tests passed.
+- This change is not installed yet. The timer/service must first be deployed and complete a healthy run on GP. Installed `/etc/gp-monitor/config.json` matched the prior source exactly; installed priorities differ from the source baseline, so merge only the new priority assignment into the effective file. Preserve current incident state and all unrelated priority entries. Before GP installation, back up the effective files, validate a private shadow with `--no-notify --state-file`, then observe natural cycles.
+
 ## Constraints and known limits
 
 - The user approved this specific DNS monitoring/IPv6 migration. Do not alter
@@ -127,6 +132,7 @@ two DNS hosts (IPv4/IPv6, UDP/TCP).
 
 ## START HERE
 
+0. For the GP CRM catalog rollout, verify the new sync timer has completed successfully, then install only its reviewed profile and priority additions. Compare the live priority registry before editing; preserve the existing drift, incident state and pending notifications. Use a private shadow state and observe natural cycles.
 1. Read this file and `README.md`; inspect `git status --short` and installed
    devbox runtime hashes. Keep the production state v3 and pending queue.
 2. On later incidents, verify devbox SSH visibility, the DNS host probe,

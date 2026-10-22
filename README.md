@@ -25,6 +25,9 @@ remain at their established locations:
 `lesson-materials-sync.timer` is owned by GP as a root system timer and is
 monitored only by the GP profile with 18-hour warning and 26-hour critical
 freshness thresholds. The retired devbox user timer must not be restored.
+The GP CRM account catalog sync uses `scratch-cg-crm-catalog.timer`; its
+last completed run warns after one hour and becomes critical after 1.5 hours.
+A failed sync service is critical immediately. The two keys route to MEDIUM.
 
 The entrypoints are compatibility wrappers. Shared package code is installed
 under `~/.local/lib/system-monitor` on devbox and
