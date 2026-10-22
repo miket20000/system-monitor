@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-17, Europe/Warsaw.
+Updated: 2026-10-22, Europe/Warsaw.
 
 ## Goal and ownership
 
@@ -99,10 +99,11 @@ two DNS hosts (IPv4/IPv6, UDP/TCP).
   19:55 cycles. The Social Media weekly-result alarm remained active at 20:25
   while its separate owner workflow was still running.
 
-## GP CRM account catalog monitor (2026-10-22; source only)
+## GP CRM account catalog monitor (2026-10-22; installed)
 
-- The GP profile now includes `scratch-cg-crm-catalog.timer` and its oneshot service result. It warns after 1 hour without a completed run and becomes critical after 1.5 hours; a failed service result is critical immediately. The catalog check routes to MEDIUM. JSON validation, direct priority readback and two focused existing tests passed.
-- This change is not installed yet. The timer/service must first be deployed and complete a healthy run on GP. Installed `/etc/gp-monitor/config.json` matched the prior source exactly; installed priorities differ from the source baseline, so merge only the new priority assignment into the effective file. Preserve current incident state and all unrelated priority entries. Before GP installation, back up the effective files, validate a private shadow with `--no-notify --state-file`, then observe natural cycles.
+- The GP profile monitors `scratch-cg-crm-catalog.timer` and its oneshot service result. It warns after 1 hour without a completed run and becomes critical after 1.5 hours; a failed service result is critical immediately. Both keys route to MEDIUM. The user confirmed no stale-catalog login cutoff while CRM is unavailable.
+- Installed only the reviewed timer entry in `/etc/gp-monitor/config.json` and one priority assignment in `/etc/system-monitor/priorities.json`. The prior profile matched source SHA-256 `e19f226b...`; the installed profile matches source SHA-256 `2ed9ca84...`. The live priority registry had unrelated drift, so its existing 48 assignments were preserved and the catalog assignment was added as the 49th. Active incident state was not reset.
+- A private `--no-notify --state-file` shadow returned 300 results, including two catalog `ok` results. The first natural GP monitor cycle at 20:46 CEST ended with service result `success` and both catalog checks `OK`; active state remained mode `0600`. No synthetic alert was sent. The user explicitly instructed us to skip new backups for this deployment, so no new config/state backup was created. The existing rollback instructions in README remain the default for future work.
 
 ## Constraints and known limits
 
@@ -132,7 +133,7 @@ two DNS hosts (IPv4/IPv6, UDP/TCP).
 
 ## START HERE
 
-0. For the GP CRM catalog rollout, verify the new sync timer has completed successfully, then install only its reviewed profile and priority additions. Compare the live priority registry before editing; preserve the existing drift, incident state and pending notifications. Use a private shadow state and observe natural cycles.
+0. For the GP CRM catalog monitor, read back the installed profile, live priority registry and active state; verify the natural catalog timer and GP monitor cycles. Preserve unrelated priority drift, active incidents and pending notifications. The 2026-10-22 rollout skipped new backup by explicit user instruction; do not treat that as the default for future changes.
 1. Read this file and `README.md`; inspect `git status --short` and installed
    devbox runtime hashes. Keep the production state v3 and pending queue.
 2. On later incidents, verify devbox SSH visibility, the DNS host probe,
