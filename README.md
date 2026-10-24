@@ -29,6 +29,29 @@ The GP CRM account catalog sync uses `scratch-cg-crm-catalog.timer`; its
 last completed run warns after one hour and becomes critical after 1.5 hours.
 A failed sync service is critical immediately. The two keys route to MEDIUM.
 
+The GP profile also watches the production units for AI Admin, Coding Giants
+App and its authentication service, Scratch CG API/Identity, and ScratchJr CG
+API/Identity. It probes the existing loopback readiness routes for the Coding
+Giants App backend and both Scratch APIs and Identity services, plus the public
+Scratch CG homepage. AI Admin readiness is covered by its existing five-minute
+`ai-admin-probe.timer`, whose timer and completed service result are monitored.
+`cga-auth-prod.service` has no unauthenticated readiness route; its unit state
+is monitored without treating an unauthorized session response as readiness.
+
+GP also monitors the completed results of the AI Admin probe, Coding Giants
+App retention, Scratch CG retention, ScratchJr CG retention and backup, and VM
+Manager reconcile and inventory-sync timers. Their warning/critical freshness
+thresholds are 15/30 minutes for AI Admin, 30/36 hours for daily jobs, 5/10
+minutes for VM reconciliation, and 15/30 minutes for VM inventory sync. The
+frequent VM Manager jobs route to MEDIUM; daily retention and backup jobs keep
+their existing LOW policy. The independent OpenRouter key monitor keeps its
+own notification channel outside this profile.
+Coding Giants App readiness verifies the signed release catalog in full every
+five minutes; a direct GP measurement took 8.677 seconds on a cold check.
+Only this endpoint uses a 30-second request timeout and 15/25-second
+warning/critical response thresholds. Other HTTP endpoints keep the profile's
+5/8-second thresholds.
+
 The entrypoints are compatibility wrappers. Shared package code is installed
 under `~/.local/lib/system-monitor` on devbox and
 `/usr/local/lib/system-monitor` on GP. The legacy Online Compiler heartbeat

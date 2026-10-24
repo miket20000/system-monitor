@@ -964,6 +964,7 @@ class ProfileTests(unittest.TestCase):
             "designmodo-api", "schedule-publisher-api", "openai-teacher-keys",
             "auth-gp", "password-provide", "online-compiler-keys", "canva-pro-keys",
             "ai-", "minecraft-codebuilder-", "support-class-reporting-realtime",
+            "cga-auth-prod", "codinggiants-app", "scratch-cg-", "scratchjr-cg-",
         )
         for unit in gp["system_services"]:
             expected = 1 if unit == "apache2.service" or unit.startswith(high_prefixes) else 2
@@ -977,6 +978,8 @@ class ProfileTests(unittest.TestCase):
             "system-timer:meta-api-daily-sync.timer": 3,
             "system-timer:ai-imaging-probe.timer": 2,
             "system-timer:openai-key-monitor.timer": 2,
+            "system-timer:vm-manager-reconcile.timer": 2,
+            "system-timer:vm-manager-inventory-sync.timer": 2,
             "user-timer:trustpilot-notifier-process.timer": 2,
         }
         for key, expected in cases.items():

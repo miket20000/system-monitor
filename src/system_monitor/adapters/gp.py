@@ -1341,14 +1341,20 @@ class Monitor:
                         ", ".join(mismatches),
                     )
                     continue
-            if elapsed > self.config["thresholds"]["http_critical_seconds"]:
+            critical_seconds = endpoint.get(
+                "critical_seconds", self.config["thresholds"]["http_critical_seconds"]
+            )
+            warning_seconds = endpoint.get(
+                "warning_seconds", self.config["thresholds"]["http_warning_seconds"]
+            )
+            if elapsed > critical_seconds:
                 self.add_endpoint_issue(
                     endpoint,
                     "critical",
                     f"{endpoint['name']} response took {elapsed:.2f}s",
                     endpoint["url"],
                 )
-            elif elapsed > self.config["thresholds"]["http_warning_seconds"]:
+            elif elapsed > warning_seconds:
                 self.add_endpoint_issue(
                     endpoint,
                     "warning",

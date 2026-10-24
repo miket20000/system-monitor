@@ -68,7 +68,14 @@
     "ai-imaging.service",
     "ai-imaging-worker.service",
     "minecraft-codebuilder-backend.service",
-    "support-class-reporting-realtime.service"
+    "support-class-reporting-realtime.service",
+    "ai-admin.service",
+    "cga-auth-prod.service",
+    "codinggiants-app.service",
+    "scratch-cg-api.service",
+    "scratch-cg-identity.service",
+    "scratchjr-cg-api.service",
+    "scratchjr-cg-identity.service"
   ],
   "database_checks": [
     {
@@ -138,6 +145,48 @@
     }
   ],
   "system_timers": [
+    {
+      "unit": "ai-admin-probe.timer",
+      "service": "ai-admin-probe.service",
+      "warning_hours": 0.25,
+      "critical_hours": 0.5
+    },
+    {
+      "unit": "codinggiants-app-retention.timer",
+      "service": "codinggiants-app-retention.service",
+      "warning_hours": 30,
+      "critical_hours": 36
+    },
+    {
+      "unit": "scratch-cg-retention.timer",
+      "service": "scratch-cg-retention.service",
+      "warning_hours": 30,
+      "critical_hours": 36
+    },
+    {
+      "unit": "scratchjr-cg-retention.timer",
+      "service": "scratchjr-cg-retention.service",
+      "warning_hours": 30,
+      "critical_hours": 36
+    },
+    {
+      "unit": "scratchjr-cg-backup.timer",
+      "service": "scratchjr-cg-backup.service",
+      "warning_hours": 30,
+      "critical_hours": 36
+    },
+    {
+      "unit": "vm-manager-reconcile.timer",
+      "service": "vm-manager-reconcile.service",
+      "warning_hours": 0.0834,
+      "critical_hours": 0.1667
+    },
+    {
+      "unit": "vm-manager-inventory-sync.timer",
+      "service": "vm-manager-inventory-sync.service",
+      "warning_hours": 0.25,
+      "critical_hours": 0.5
+    },
     {
       "unit": "scratch-cg-crm-catalog.timer",
       "service": "scratch-cg-crm-catalog.service",
@@ -600,6 +649,11 @@
       "allowed_statuses": [
         200
       ]
+    },
+    {
+      "name": "scratch-cg-public",
+      "url": "https://scratch.gp.edu.pl/",
+      "allowed_statuses": [200]
     },
     {
       "name": "otwarte",
@@ -1518,6 +1572,39 @@
       "allowed_statuses": [
         200
       ]
+    },
+    {
+      "name": "codinggiants-app-ready-local",
+      "url": "http://127.0.0.1:8114/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {"status": "ready"},
+      "timeout_seconds": 30,
+      "warning_seconds": 15,
+      "critical_seconds": 25
+    },
+    {
+      "name": "scratch-cg-api-ready-local",
+      "url": "http://127.0.0.1:18601/api/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {"status": "ok"}
+    },
+    {
+      "name": "scratch-cg-identity-ready-local",
+      "url": "http://127.0.0.1:18602/internal/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {"status": "ok"}
+    },
+    {
+      "name": "scratchjr-cg-api-ready-local",
+      "url": "http://127.0.0.1:18622/api/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {"status": "ok"}
+    },
+    {
+      "name": "scratchjr-cg-identity-ready-local",
+      "url": "http://127.0.0.1:18623/internal/health/ready",
+      "allowed_statuses": [200],
+      "expected_json": {"status": "ok"}
     }
   ],
   "dns_endpoints": [

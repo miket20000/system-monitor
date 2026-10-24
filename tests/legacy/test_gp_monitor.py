@@ -30,6 +30,31 @@ INGEST_SPEC.loader.exec_module(INGEST)
 
 
 class ConfigCoverageTests(unittest.TestCase):
+    def test_current_gp_application_units_and_jobs_are_monitored(self) -> None:
+        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        services = set(config["system_services"])
+        timers = {item["unit"]: item for item in config["system_timers"]}
+        endpoints = {item["name"] for item in config["endpoints"]}
+
+        self.assertTrue({
+            "ai-admin.service", "cga-auth-prod.service",
+            "codinggiants-app.service", "scratch-cg-api.service",
+            "scratch-cg-identity.service", "scratchjr-cg-api.service",
+            "scratchjr-cg-identity.service",
+        } <= services)
+        for name in (
+            "ai-admin-probe", "codinggiants-app-retention",
+            "scratch-cg-retention", "scratchjr-cg-retention",
+            "scratchjr-cg-backup", "vm-manager-reconcile",
+            "vm-manager-inventory-sync",
+        ):
+            self.assertEqual(timers[name + ".timer"]["service"], name + ".service")
+        self.assertTrue({
+            "scratch-cg-public", "codinggiants-app-ready-local",
+            "scratch-cg-api-ready-local", "scratch-cg-identity-ready-local",
+            "scratchjr-cg-api-ready-local", "scratchjr-cg-identity-ready-local",
+        } <= endpoints)
+
     def test_codinggiants_cdn_import_timer_is_monitored(self) -> None:
         config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
         timers = {item["unit"]: item for item in config["system_timers"]}
@@ -1264,6 +1289,49 @@ class ProductionHeartbeatV3Tests(ProductionHeartbeatV2Tests):
 
 
 class HttpMonitorTests(unittest.TestCase):
+    def test_slow_release_validation_uses_only_its_own_http_limits(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            config = {
+                "state_file": str(Path(directory) / "state.json"),
+                "thresholds": {
+                    "http_warning_seconds": 5,
+                    "http_critical_seconds": 8,
+                },
+                "endpoints": [
+                    {
+                        "name": "release-ready",
+                        "url": "http://127.0.0.1:8114/health/ready",
+                        "allowed_statuses": [200],
+                        "expected_json": {"status": "ready"},
+                        "timeout_seconds": 30,
+                        "warning_seconds": 15,
+                        "critical_seconds": 25,
+                    },
+                    {
+                        "name": "ordinary",
+                        "url": "http://127.0.0.1:8100/health",
+                        "allowed_statuses": [200],
+                    },
+                ],
+            }
+            monitor = MODULE.Monitor(config, notify=False)
+
+            class Response:
+                status = 200
+
+                @staticmethod
+                def read(size: int) -> bytes:
+                    return b'{"status":"ready"}'
+
+            with (
+                patch.object(MODULE.time, "monotonic", side_effect=[100, 110, 200, 210]),
+                patch.object(MODULE.urllib.request, "urlopen", return_value=Response()) as urlopen,
+            ):
+                monitor.check_http()
+
+            self.assertEqual([result.severity for result in monitor.results], ["ok", "critical"])
+            self.assertEqual([call.kwargs["timeout"] for call in urlopen.call_args_list], [30, 8])
+
     def test_http_503_is_a_raw_network_failure_without_legacy_counter(self) -> None:
         state_path = Path(__file__).with_name(".gp-monitor-test-state.json")
         state_path.unlink(missing_ok=True)

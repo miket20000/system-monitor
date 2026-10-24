@@ -25,6 +25,48 @@
       "resolved": "synchronizacja katalogu ponownie działa"
     },
     {
+      "patterns": ["service:ai-admin.service"],
+      "priority": 1,
+      "name": "AI Admin",
+      "problem": "usługa administracyjna nie działa",
+      "resolved": "usługa administracyjna ponownie działa"
+    },
+    {
+      "patterns": ["service:cga-auth-prod.service"],
+      "priority": 1,
+      "name": "Coding Giants App Auth",
+      "problem": "usługa uwierzytelniania nie działa",
+      "resolved": "usługa uwierzytelniania ponownie działa"
+    },
+    {
+      "patterns": ["service:codinggiants-app.service", "endpoint:codinggiants-app-ready-local"],
+      "priority": 1,
+      "name": "Coding Giants App",
+      "problem": "backend nie działa prawidłowo",
+      "resolved": "backend ponownie działa prawidłowo"
+    },
+    {
+      "patterns": ["service:scratch-cg-api.service", "service:scratch-cg-identity.service", "endpoint:scratch-cg-*"],
+      "priority": 1,
+      "name": "Scratch CG",
+      "problem": "aplikacja nie działa prawidłowo",
+      "resolved": "aplikacja ponownie działa prawidłowo"
+    },
+    {
+      "patterns": ["service:scratchjr-cg-api.service", "service:scratchjr-cg-identity.service", "endpoint:scratchjr-cg-*"],
+      "priority": 1,
+      "name": "ScratchJr CG",
+      "problem": "aplikacja nie działa prawidłowo",
+      "resolved": "aplikacja ponownie działa prawidłowo"
+    },
+    {
+      "patterns": ["system-timer:vm-manager-reconcile.timer", "system-service:vm-manager-reconcile.service:result", "system-timer:vm-manager-inventory-sync.timer", "system-service:vm-manager-inventory-sync.service:result"],
+      "priority": 2,
+      "name": "VM Manager",
+      "problem": "zadanie operacyjne nie zakończyło się prawidłowo",
+      "resolved": "zadanie operacyjne ponownie działa"
+    },
+    {
       "patterns": ["dnsproxy:dnsproxy1:probe-*"],
       "priority": 1,
       "name": "DNS Proxy 1 — widoczność",
