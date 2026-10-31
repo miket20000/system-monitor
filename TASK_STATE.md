@@ -124,7 +124,9 @@ existing Next Dev alarms are outside this change.
   service-result checks remained OK with zero failure streak, and the
   production pending-notification queue stayed empty. Both route MEDIUM.
   Active monitor state was not reset. The first natural application timer
-  cycle is scheduled for 17:00 CET and still needs observation.
+  cycle at 17:00 CET ended with service success (`awaitingReplica` for two
+  newly acknowledged CRM deletions). The natural GP monitor cycle at 17:01
+  also succeeded; both PAM keys remained OK and no notification was pending.
 
 ## Constraints and known limits
 
