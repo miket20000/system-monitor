@@ -19,7 +19,7 @@ existing Next Dev alarms are outside this change.
   `/etc/gp-monitor/config.json`, priority registry
   `/etc/system-monitor/priorities.json`, state `/var/lib/gp-monitor/state.json`.
   Devbox runs at `*:0/5` with its established user-local paths.
-- The GP profile now names 44 system services, 41 system timers and 115 HTTP
+- The GP profile now names 44 system services, 42 system timers and 115 HTTP
   endpoints. The new entries cover AI Admin, CGA authentication/backend,
   Scratch CG and ScratchJr API/Identity, their documented readiness routes,
   the public Scratch CG homepage, the AI Admin probe, application retention
@@ -37,7 +37,7 @@ existing Next Dev alarms are outside this change.
   completed `.service` result. It warns after 1.5 hours without completion,
   becomes critical after 2.5 hours, and detects a timer trigger without a
   completed run after 30 minutes. Both keys route MEDIUM. This source change
-  has not been installed on GP; no live monitor state was touched.
+  is installed on GP; active incident state was preserved.
 - Devbox and GP profiles retain separate incident state v3. The engine keeps
   technical keys, two-cycle recovery, three-cycle network confirmation and
   pending-event coalescence. `--no-notify` writes state; a diagnostic run must
@@ -108,7 +108,23 @@ existing Next Dev alarms are outside this change.
   The first new-test attempt failed because it called a nonexistent registry
   method; it was fixed. Direct full-suite execution in the read-only sandbox
   was non-credible for 17 legacy tests that write beside the test file; the
-  private-copy run passed. No production shadow or natural cycle was run.
+  private-copy run passed. A later GP shadow and natural cycles passed as below.
+
+- On 2026-10-31 the GP application timer was enabled after a completed
+  reconciliation, zero pending CRM operations and full Google Sheet readback.
+  Before installing the monitor profile, the live profile differed from source
+  only by the PAM timer. The priority merge retained all live assignments,
+  including six unrelated source/live differences. Private rollback snapshot:
+  `/var/lib/gp-monitor/rollbacks/20261031-pam-before`.
+- A private GP shadow with `--no-notify --state-file` returned 330 results;
+  both new PAM keys were OK. The installed profile and priority registry
+  hashes are `140db1a1b52bb86ef6a01f426d9ccd5285c7aa517b0443e861829b366d48e5b2`
+  and `8614b5db0df4752e73980b8dffb6d523eeee35d4d8fa6c0cf12651bac22458fe`.
+  Natural 16:31 and 16:36 CET cycles finished successfully; PAM timer and
+  service-result checks remained OK with zero failure streak, and the
+  production pending-notification queue stayed empty. Both route MEDIUM.
+  Active monitor state was not reset. The first natural application timer
+  cycle is scheduled for 17:00 CET and still needs observation.
 
 ## Constraints and known limits
 
@@ -136,12 +152,11 @@ existing Next Dev alarms are outside this change.
 
 ## START HERE
 
-1. Before installing the new Minecraft account check, confirm the GP service
-   and timer are deployed, enabled, and have a completed successful run. Compare
-   the source profile and priority registry with live files, preserving the
-   documented unrelated priority drift and active incidents. Use a private
-   `--state-file` for any shadow cycle; wait for natural cycles to validate the
-   new keys. Do not enable the GP profile entry before the application exists.
+1. The Minecraft account check is installed on GP. Confirm the application
+   timer remains enabled and its hourly service completes; compare the live
+   profile and priority registry with source while preserving six unrelated
+   priority differences and active incidents. Use a private `--state-file`
+   for any shadow cycle; never reset production state or send synthetic alerts.
 2. Read this file and `README.md`; check `git status --short`, the installed GP
    profile/adapter/priority hashes, timer state, active incident state and
    pending notifications before further changes. The final candidate passed
