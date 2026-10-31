@@ -55,6 +55,27 @@ class ConfigCoverageTests(unittest.TestCase):
             "scratchjr-cg-api-ready-local", "scratchjr-cg-identity-ready-local",
         } <= endpoints)
 
+    def test_platform_account_manager_timer_and_priority(self) -> None:
+        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        timers = {item["unit"]: item for item in config["system_timers"]}
+        self.assertEqual(
+            timers["platform-account-manager.timer"],
+            {
+                "unit": "platform-account-manager.timer",
+                "service": "platform-account-manager.service",
+                "warning_hours": 1.5,
+                "critical_hours": 2.5,
+                "require_completion_after_trigger": True,
+                "completion_grace_seconds": 1800,
+            },
+        )
+        registry = PriorityRegistry.load(PRIORITIES_PATH)
+        for key in (
+            "system-timer:platform-account-manager.timer",
+            "system-service:platform-account-manager.service:result",
+        ):
+            self.assertEqual(registry.display(key, "completed").priority, 2)
+
     def test_codinggiants_cdn_import_timer_is_monitored(self) -> None:
         config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
         timers = {item["unit"]: item for item in config["system_timers"]}

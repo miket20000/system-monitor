@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-10-24, Europe/Warsaw.
+Updated: 2026-10-31, Europe/Warsaw.
 
 ## Goal and ownership
 
@@ -33,6 +33,11 @@ existing Next Dev alarms are outside this change.
   its five-minute cache expires. Only this endpoint has a 30-second request
   timeout and 15/25-second warning/critical response thresholds; other GP
   HTTP probes retain 5/8 seconds.
+- Source GP profile now includes `platform-account-manager.timer` and its
+  completed `.service` result. It warns after 1.5 hours without completion,
+  becomes critical after 2.5 hours, and detects a timer trigger without a
+  completed run after 30 minutes. Both keys route MEDIUM. This source change
+  has not been installed on GP; no live monitor state was touched.
 - Devbox and GP profiles retain separate incident state v3. The engine keeps
   technical keys, two-cycle recovery, three-cycle network confirmation and
   pending-event coalescence. `--no-notify` writes state; a diagnostic run must
@@ -98,6 +103,13 @@ existing Next Dev alarms are outside this change.
   candidate profile, GP adapter and state separately from the pre-change
   snapshot.
 
+- The 2026-10-31 source change passed JSON validation, `git diff --check`
+  and the full test suite in a private `/tmp` copy (247 tests, 50 subtests).
+  The first new-test attempt failed because it called a nonexistent registry
+  method; it was fixed. Direct full-suite execution in the read-only sandbox
+  was non-credible for 17 legacy tests that write beside the test file; the
+  private-copy run passed. No production shadow or natural cycle was run.
+
 ## Constraints and known limits
 
 - The three active GP Next Dev CRITICAL checks are a detected application
@@ -124,14 +136,20 @@ existing Next Dev alarms are outside this change.
 
 ## START HERE
 
-1. Read this file and `README.md`; check `git status --short`, the installed GP
+1. Before installing the new Minecraft account check, confirm the GP service
+   and timer are deployed, enabled, and have a completed successful run. Compare
+   the source profile and priority registry with live files, preserving the
+   documented unrelated priority drift and active incidents. Use a private
+   `--state-file` for any shadow cycle; wait for natural cycles to validate the
+   new keys. Do not enable the GP profile entry before the application exists.
+2. Read this file and `README.md`; check `git status --short`, the installed GP
    profile/adapter/priority hashes, timer state, active incident state and
    pending notifications before further changes. The final candidate passed
    natural 14:46 and 14:51 cycles. Keep the 14:36/14:41 first-candidate
    FAIL results in the evidence.
-2. Preserve the private snapshot, unrelated GP priority drift and the active
+3. Preserve the private snapshot, unrelated GP priority drift and the active
    Next Dev incidents. If a new check fails, diagnose the service independently;
    do not clear state or create synthetic notifications.
-3. Keep the requested exclusions: no AI Apps DEV change and no Next Dev alarm
+4. Keep the requested exclusions: no AI Apps DEV change and no Next Dev alarm
    remediation in this stage. A later deployment must compare source and live
    configuration before writing either host.

@@ -28,6 +28,12 @@ freshness thresholds. The retired devbox user timer must not be restored.
 The GP CRM account catalog sync uses `scratch-cg-crm-catalog.timer`; its
 last completed run warns after one hour and becomes critical after 1.5 hours.
 A failed sync service is critical immediately. The two keys route to MEDIUM.
+The GP Minecraft account reconciler uses `platform-account-manager.timer`;
+its last completed run warns after 1.5 hours and becomes critical after 2.5
+hours. A failed service or a timer trigger without a completed run after 30
+minutes is critical. The timer and service-result keys route to MEDIUM. The
+monitor reads only systemd unit state and completion timestamps; it does not
+read account credentials or reconciliation payloads.
 
 The GP profile also watches the production units for AI Admin, Coding Giants
 App and its authentication service, Scratch CG API/Identity, and ScratchJr CG

@@ -188,6 +188,14 @@
       "critical_hours": 0.5
     },
     {
+      "unit": "platform-account-manager.timer",
+      "service": "platform-account-manager.service",
+      "warning_hours": 1.5,
+      "critical_hours": 2.5,
+      "require_completion_after_trigger": true,
+      "completion_grace_seconds": 1800
+    },
+    {
       "unit": "scratch-cg-crm-catalog.timer",
       "service": "scratch-cg-crm-catalog.service",
       "warning_hours": 1,

@@ -18,6 +18,13 @@
   },
   "assignments": [
     {
+      "patterns": ["system-timer:platform-account-manager.timer", "system-service:platform-account-manager.service:result"],
+      "priority": 2,
+      "name": "Przypisania kont Minecraft",
+      "problem": "uzgadnianie kont nie zakończyło się poprawnie",
+      "resolved": "uzgadnianie kont ponownie działa"
+    },
+    {
       "patterns": ["system-timer:scratch-cg-crm-catalog.timer", "system-service:scratch-cg-crm-catalog.service:result"],
       "priority": 2,
       "name": "Katalog kont CRM na GP",
