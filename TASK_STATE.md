@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-11-07 14:21 CET.
+Updated: 2026-11-07 14:35 CET.
 
 ## Goal and ownership
 
@@ -11,9 +11,9 @@ local probes, the GP dead-man check and read-only DNS proxy checks. GP owns
 its workloads, Online Compiler scheduler checks and public DNS checks.
 
 The current task fixes repeated identical lines within one Telegram message
-and reports active alarms. It does not repair the monitored applications or
-clear incident state. AI Apps DEV and existing Next Dev alarm remediation remain
-out of scope.
+and reports active alarms. An authorized follow-up removed one orphaned
+`giganci` Restic lock and reran its data check. Incident state was not reset.
+AI Apps DEV and existing Next Dev alarm remediation remain out of scope.
 
 ## Current implementation and runtime
 
@@ -75,7 +75,16 @@ notification queues were empty.
   authorized manual `data-check all` on 7 Nov at 14:16–14:19 passed for
   `dnsproxy1`, `dnsproxy2` and `gp`, but failed for `giganci` (status 11) due
   to the same lock; the overall unit exited 1. Natural devbox-monitor at 14:20
-  retained the active alarm with the new failed-run incident. Restic GP
+  retained the active alarm with the new failed-run incident. After a fresh
+  check found no Restic clients on devbox or the four VPSs and verified the
+  backup disk UUID and `rw` guard, operator-approved `restic unlock` removed
+  exactly one stale `giganci` lock. The 14:32–14:33 standalone
+  `data-check giganci` passed: 153/153 sampled packs, no errors. The monitored
+  `vps-restic-data-check.service` still records the first failed `all` run,
+  so the service-result alarm remains until a successful run of that unit.
+  Natural devbox-monitor at 14:35 finished successfully and still reported
+  `CRITICAL user-service:vps-restic-data-check.service:result`.
+  Restic GP
   mail purge CRITICAL — 2 Nov SSH timeout to GP after about three hours;
   unfinished remote stage is unverified. The regular Restic backup succeeded
   7 Nov at 04:11, which does not resolve these separate jobs.
@@ -87,14 +96,13 @@ notification queues were empty.
 - Resolved during observation: AI Text tools was HTTP 503 and `ok=false` at
   12:26 while service and readiness were healthy; it returned HTTP 200 at
   12:42. The internal cause and natural recovery trigger are unconfirmed.
-- No application remediation, production-state reset, notification replay or
-  synthetic incident was performed. The 2026-10-24 first GP readiness candidate
+- No production-state reset, notification replay or synthetic incident was
+  performed. The 2026-10-24 first GP readiness candidate
   had two observed failures before its timeout correction; retain that history.
-- The `giganci` lock is one file dated 1 Nov 03:35 and names PID 3028051 on
-  `giganci`; that PID and Restic clients were absent on that host at 14:20.
-  Read-only checks found no Restic clients on devbox or the other three VPSs.
-  The lock remains in place pending an explicit decision; see the owning
-  `scripts-devbox/vps-restic-backup/TASK_STATE.md` before any unlock.
+- The removed `giganci` lock was dated 1 Nov 03:35 and named PID 3028051 on
+  `giganci`; that PID and Restic clients were absent. The repository's lock
+  directory was empty after the successful retry. See the owning
+  `scripts-devbox/vps-restic-backup/TASK_STATE.md` for operational details.
 
 ## Important files
 
@@ -112,7 +120,9 @@ notification queues were empty.
    any repair. The precise stage of GP mail purge, Designmodo batch error and
    reason for absent mail-compression results remain unverified. Do not clear
    monitor state or create synthetic notifications as validation.
-   Data-check's 7 Nov first attempt is FAIL; preserve it if a later retry passes.
+   Data-check's 7 Nov service attempt remains FAIL; its isolated `giganci`
+   retry is PASS. The service-result alarm will require a successful unit run;
+   do not clear monitor state manually.
 3. Preserve private snapshots and unrelated GP priority drift. If the new
    notification module later fails, restore the prior module from the relevant
    snapshot while retaining incident state and first-attempt evidence.
