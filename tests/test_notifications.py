@@ -72,6 +72,19 @@ class FormatTests(unittest.TestCase):
         for forbidden in ("critical", "warning", "endpoint", "service", "timer", "cron"):
             self.assertNotIn(forbidden, lowered)
 
+    def test_identical_rendered_lines_appear_once_per_status(self):
+        event = {"name": "AI Text", "problem": "usługa ponownie działa prawidłowo", "host": "gp"}
+        self.assertEqual(
+            format_message("RESOLVED", [event, event]),
+            "[RESOLVED]\nAI Text : usługa ponownie działa prawidłowo : gp",
+        )
+        digest = format_low_digest([
+            {**event, "status": "NEW"},
+            {**event, "status": "NEW"},
+            {**event, "status": "RESOLVED"},
+        ])
+        self.assertEqual(digest.count("AI Text :"), 2)
+
     def test_low_digest_has_only_supported_status_sections(self):
         text = format_low_digest(
             [
@@ -627,10 +640,39 @@ class NotificationEngineTests(unittest.TestCase):
             sender=self.sender,
             max_items_per_message=20,
         ).process(state, [])
-        self.assertGreater(len(self.sender.calls), 1)
+        self.assertEqual(len(self.sender.calls), 1)
+        self.assertEqual(self.sender.calls[0][1].count("N" * 180 + " :"), 1)
         for _, text in self.sender.calls:
             self.assertLessEqual(len(text), 4096)
             self.assertLessEqual(len(text.splitlines()) - 1, 20)
+        self.assertEqual(state["pending_notifications"], {})
+
+    def test_duplicate_lines_share_delivery_result_across_chunk_boundary(self):
+        pending = {}
+        for index in range(25):
+            key = f"endpoint:ai-text-{index}"
+            pending[f"1:RESOLVED:{key}"] = {
+                "key": key, "priority": 1, "status": "RESOLVED",
+                "name": "AI Text", "problem": "usługa ponownie działa prawidłowo", "host": "gp",
+            }
+        key = "endpoint:other"
+        pending[f"1:RESOLVED:{key}"] = {
+            "key": key, "priority": 1, "status": "RESOLVED",
+            "name": "Inna aplikacja", "problem": "usługa ponownie działa prawidłowo", "host": "gp",
+        }
+        sender = RecordingSender(fail_calls={1})
+        state = {"checks": {}, "pending_notifications": pending}
+        engine = NotificationEngine(
+            self.registry, host="gp", now=self.now, notify=True,
+            sender=sender, max_items_per_message=1,
+        )
+        engine.process(state, [])
+        self.assertEqual(len(sender.calls), 1)
+        self.assertEqual(len(state["pending_notifications"]), 25)
+        self.assertNotIn("AI Text :", sender.calls[0][1])
+        engine.process(state, [])
+        self.assertEqual(len(sender.calls), 2)
+        self.assertEqual(sender.calls[1][1].count("AI Text :"), 1)
         self.assertEqual(state["pending_notifications"], {})
 
     def test_failed_message_chunk_retries_only_that_chunk(self):
@@ -709,6 +751,26 @@ class NotificationEngineTests(unittest.TestCase):
         delivered = "\n".join(text for _, text in sender.calls)
         for index in range(5):
             self.assertEqual(delivered.count(f"Kontrola {index} :"), 1)
+
+    def test_low_digest_collapses_same_rendered_recovery_and_acknowledges_all_keys(self):
+        pending = {}
+        for index in range(6):
+            key = f"system-service:mail-archive-{index}.service:result"
+            pending[f"3:RESOLVED:{key}"] = {
+                "key": key, "priority": 3, "status": "RESOLVED",
+                "name": "Archiwizacja poczty",
+                "problem": "zadanie ponownie zakończyło się pomyślnie",
+                "host": "gp",
+            }
+        state = {"checks": {}, "pending_notifications": pending}
+        NotificationEngine(
+            self.registry, host="gp", now=self.now, notify=True,
+            sender=self.sender, max_items_per_message=2,
+        ).process(state, [])
+        self.assertEqual(len(self.sender.calls), 1)
+        self.assertEqual(self.sender.calls[0][1].count("Archiwizacja poczty :"), 1)
+        self.assertEqual(state["pending_notifications"], {})
+        self.assertEqual(state["last_low_digest_date"], "2026-10-04")
 
     def test_legacy_active_incident_is_not_replayed(self):
         self.state = {

@@ -117,7 +117,7 @@ monitor configuration and state in a private rollback snapshot.
 
 Messages are routed to `sysmon-high`, `sysmon-medium` or `sysmon-low`. The
 channel carries the priority; message text uses only `[NEW]`, `[REMINDER]` and
-`[RESOLVED]`. Every event occupies one line:
+`[RESOLVED]`. Every distinct visible item occupies one line:
 
 ```text
 Service name : problem : devbox|gp
@@ -134,9 +134,11 @@ and chat IDs remain in the protected runtime environment files.
 Pending delivery is coalesced to the current lifecycle state of each check, so
 an undelivered transition cannot later produce contradictory `NEW` and
 `RESOLVED` lines. Severity escalation and a stable notification-code change
-produce an immediate `REMINDER`. Messages are split at the configured item
-limit and Telegram's 4096-character limit; successful chunks are not retried
-when another chunk fails. The GP profile controls failure/recovery confirmation,
+produce an immediate `REMINDER`. Identical visible lines within one status and
+priority appear once, while delivery still acknowledges every underlying check.
+Messages are split at the configured visible-line limit and Telegram's
+4096-character limit; successful chunks are not retried when another chunk
+fails. The GP profile controls failure/recovery confirmation,
 the MEDIUM reminder interval, recovery suppression and chunk size. LOW remains
 a daily digest after 08:00 Europe/Warsaw. Password Reset retains separate
 technical checks for each account and the orchestrator, but their notification

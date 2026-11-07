@@ -264,6 +264,7 @@ def format_message(status: str, events: Iterable[dict[str, Any]]) -> str:
     if status not in STATUS_ORDER:
         raise ValueError("Unsupported notification status")
     lines = [f"[{status}]"]
+    seen: set[str] = set()
     for event in events:
         name = _clean(event["name"])
         problem = _clean(event["problem"])
@@ -273,7 +274,9 @@ def format_message(status: str, events: Iterable[dict[str, Any]]) -> str:
         line = f"{name} : {problem} : {host}"
         if TYPE_WORDS.search(line) or "http://" in line.lower() or "https://" in line.lower():
             raise ValueError("Notification contains a forbidden technical detail")
-        lines.append(line)
+        if line not in seen:
+            lines.append(line)
+            seen.add(line)
     if len(lines) == 1:
         raise ValueError("Notification has no events")
     return "\n".join(lines)
@@ -430,11 +433,21 @@ class NotificationEngine:
         selected: list[tuple[str, dict[str, Any]]],
         formatter: Callable[[Iterable[dict[str, Any]]], str],
     ) -> list[list[tuple[str, dict[str, Any]]]]:
-        chunks: list[list[tuple[str, dict[str, Any]]]] = []
-        current: list[tuple[str, dict[str, Any]]] = []
+        # Distinct technical checks can render as the same Telegram line. Keep
+        # every event ID for delivery bookkeeping, but chunk by visible lines.
+        grouped: dict[tuple[str, str, str, str], list[tuple[str, dict[str, Any]]]] = {}
         for item in selected:
-            candidate = [*current, item]
-            candidate_text = formatter(event for _, event in candidate)
+            event = item[1]
+            line_id = tuple(
+                _clean(event[field]) for field in ("status", "name", "problem", "host")
+            )
+            grouped.setdefault(line_id, []).append(item)
+
+        chunks: list[list[tuple[str, dict[str, Any]]]] = []
+        current: list[list[tuple[str, dict[str, Any]]]] = []
+        for group in grouped.values():
+            candidate = [*current, group]
+            candidate_text = formatter(items[0][1] for items in candidate)
             exceeds_limit = (
                 len(candidate) > self.max_items_per_message
                 or len(candidate_text) > TELEGRAM_MESSAGE_LIMIT
@@ -442,14 +455,14 @@ class NotificationEngine:
             if exceeds_limit and not current:
                 raise ValueError("Notification event exceeds Telegram message limit")
             if exceeds_limit:
-                chunks.append(current)
-                current = [item]
-                if len(formatter([item[1]])) > TELEGRAM_MESSAGE_LIMIT:
+                chunks.append([item for items in current for item in items])
+                current = [group]
+                if len(formatter([group[0][1]])) > TELEGRAM_MESSAGE_LIMIT:
                     raise ValueError("Notification event exceeds Telegram message limit")
             else:
                 current = candidate
         if current:
-            chunks.append(current)
+            chunks.append([item for items in current for item in items])
         return chunks
 
     def _reconcile_notification_groups(
