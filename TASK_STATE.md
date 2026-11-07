@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-11-07 12:42 CET.
+Updated: 2026-11-07 14:21 CET.
 
 ## Goal and ownership
 
@@ -70,8 +70,12 @@ notification queues were empty.
 - Devbox: Social Media weekly invitations WARNING — 2 Nov run skipped at
   `ExecCondition` because its working directory was missing (`CHDIR`);
   journal also reports inotify `ENOSPC`. Restic check CRITICAL — 2 Nov run
-  refused while another backup operated. Restic data-check and retention
-  CRITICAL — 1 Nov `giganci` repository lock prevented both checks. Restic GP
+  refused while another backup operated. Restic retention CRITICAL — 1 Nov
+  `giganci` repository lock prevented the check. Restic data-check CRITICAL —
+  authorized manual `data-check all` on 7 Nov at 14:16–14:19 passed for
+  `dnsproxy1`, `dnsproxy2` and `gp`, but failed for `giganci` (status 11) due
+  to the same lock; the overall unit exited 1. Natural devbox-monitor at 14:20
+  retained the active alarm with the new failed-run incident. Restic GP
   mail purge CRITICAL — 2 Nov SSH timeout to GP after about three hours;
   unfinished remote stage is unverified. The regular Restic backup succeeded
   7 Nov at 04:11, which does not resolve these separate jobs.
@@ -86,6 +90,11 @@ notification queues were empty.
 - No application remediation, production-state reset, notification replay or
   synthetic incident was performed. The 2026-10-24 first GP readiness candidate
   had two observed failures before its timeout correction; retain that history.
+- The `giganci` lock is one file dated 1 Nov 03:35 and names PID 3028051 on
+  `giganci`; that PID and Restic clients were absent on that host at 14:20.
+  Read-only checks found no Restic clients on devbox or the other three VPSs.
+  The lock remains in place pending an explicit decision; see the owning
+  `scripts-devbox/vps-restic-backup/TASK_STATE.md` before any unlock.
 
 ## Important files
 
@@ -103,6 +112,7 @@ notification queues were empty.
    any repair. The precise stage of GP mail purge, Designmodo batch error and
    reason for absent mail-compression results remain unverified. Do not clear
    monitor state or create synthetic notifications as validation.
+   Data-check's 7 Nov first attempt is FAIL; preserve it if a later retry passes.
 3. Preserve private snapshots and unrelated GP priority drift. If the new
    notification module later fails, restore the prior module from the relevant
    snapshot while retaining incident state and first-attempt evidence.
