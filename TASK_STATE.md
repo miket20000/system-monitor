@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-11-07 14:35 CET.
+Updated: 2026-11-07 15:41 CET.
 
 ## Goal and ownership
 
@@ -12,7 +12,9 @@ its workloads, Online Compiler scheduler checks and public DNS checks.
 
 The current task fixes repeated identical lines within one Telegram message
 and reports active alarms. An authorized follow-up removed one orphaned
-`giganci` Restic lock and reran its data check. Incident state was not reset.
+`giganci` Restic lock and reran its data check. A later authorized full
+data-check run succeeded and the monitor closed its alarm through natural
+cycles. Incident state was not edited manually.
 AI Apps DEV and existing Next Dev alarm remediation remain out of scope.
 
 ## Current implementation and runtime
@@ -67,27 +69,24 @@ alarms and four GP alarms. The AI Text alarm naturally resolved at 12:36.
 At 12:41–12:42, five devbox and three GP alarms remained active; both pending
 notification queues were empty.
 
-- Devbox: Social Media weekly invitations WARNING — 2 Nov run skipped at
-  `ExecCondition` because its working directory was missing (`CHDIR`);
+- Devbox at 15:40: Social Media weekly invitations WARNING — 2 Nov run skipped
+  at `ExecCondition` because its working directory was missing (`CHDIR`);
   journal also reports inotify `ENOSPC`. Restic check CRITICAL — 2 Nov run
   refused while another backup operated. Restic retention CRITICAL — 1 Nov
-  `giganci` repository lock prevented the check. Restic data-check CRITICAL —
-  authorized manual `data-check all` on 7 Nov at 14:16–14:19 passed for
-  `dnsproxy1`, `dnsproxy2` and `gp`, but failed for `giganci` (status 11) due
-  to the same lock; the overall unit exited 1. Natural devbox-monitor at 14:20
-  retained the active alarm with the new failed-run incident. After a fresh
-  check found no Restic clients on devbox or the four VPSs and verified the
-  backup disk UUID and `rw` guard, operator-approved `restic unlock` removed
-  exactly one stale `giganci` lock. The 14:32–14:33 standalone
-  `data-check giganci` passed: 153/153 sampled packs, no errors. The monitored
-  `vps-restic-data-check.service` still records the first failed `all` run,
-  so the service-result alarm remains until a successful run of that unit.
-  Natural devbox-monitor at 14:35 finished successfully and still reported
-  `CRITICAL user-service:vps-restic-data-check.service:result`.
-  Restic GP
-  mail purge CRITICAL — 2 Nov SSH timeout to GP after about three hours;
-  unfinished remote stage is unverified. The regular Restic backup succeeded
-  7 Nov at 04:11, which does not resolve these separate jobs.
+  `giganci` repository lock prevented the check. Restic GP mail purge
+  CRITICAL — 2 Nov SSH timeout to GP after about three hours; unfinished remote
+  stage is unverified. The regular Restic backup succeeded 7 Nov at 04:11,
+  which does not resolve these separate jobs.
+- Resolved Restic data-check: the authorized `data-check all` at 14:16–14:19
+  passed for three repos but failed for `giganci` due to the stale lock; the
+  unit exited 1 and the 14:20 monitor retained CRITICAL. After confirming no
+  Restic clients on devbox or the four VPSs and verifying disk UUID and `rw`
+  guard, operator-approved `restic unlock` removed exactly one lock. Isolated
+  `data-check giganci` passed at 14:33. The authorized full unit rerun at
+  15:30–15:34 passed for all four repos (`Result=success`, exit 0). Natural
+  monitor cycles at 15:35 and 15:40 read OK; the second closed the alarm
+  (`alert_active=false`). Its LOW `[RESOLVED]` event awaits the next daily
+  digest after 08:00.
 - GP: Designmodo daily sync CRITICAL — 7 Nov 06:45
   `giganciprogramowania` import batch had one error and imported zero;
   underlying batch error not in the bounded journal. Mail archive compression
@@ -120,9 +119,10 @@ notification queues were empty.
    any repair. The precise stage of GP mail purge, Designmodo batch error and
    reason for absent mail-compression results remain unverified. Do not clear
    monitor state or create synthetic notifications as validation.
-   Data-check's 7 Nov service attempt remains FAIL; its isolated `giganci`
-   retry is PASS. The service-result alarm will require a successful unit run;
-   do not clear monitor state manually.
+   Data-check's first 7 Nov service attempt remains FAIL; its isolated
+   `giganci` retry and later full service run are PASS. The service-result
+   alarm closed naturally at 15:40; its LOW recovery event awaits the next
+   daily digest. Do not replay or clear other incidents manually.
 3. Preserve private snapshots and unrelated GP priority drift. If the new
    notification module later fails, restore the prior module from the relevant
    snapshot while retaining incident state and first-attempt evidence.
