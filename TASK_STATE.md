@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-11-08 09:52 CET.
+Updated: 2026-11-08 10:05 CET.
 
 ## Goal and ownership
 
@@ -57,15 +57,19 @@ messages in the sampled chat predated its earlier central-monitor migration.
   `/var/backups/system-monitor/20261108-telegram-routing-before/`.
   Schedule Publisher API restarted active; local status and public current
   JSON returned HTTP 200. All four relevant GP timers were enabled. Natural
-  worker and OpenAI cycles after cutover are pending at 10:00; Designmodo's
-  next daily cycle is 2026-11-09 06:45 CET.
+  Schedule Publisher and OpenAI cycles at 10:00 finished success/0; private
+  business statuses were `ok`. The following GP monitor 10:01 cycle finished
+  success/0, with their status and service-result checks `ok`, the Designmodo
+  alarm still active, and zero pending GP events. Designmodo's next daily
+  cycle is 2026-11-09 06:45 CET.
 - Devbox Password Reset source commit: `31dd39f` in `scripts-devbox`.
   GP app source commit: `1bbbebd` in `vps-gp`. First natural Password Reset
-  run at 09:48:34 passed exit 0 with `--no-telegram`; next is 10:03:34.
+  runs at 09:48:34 and 10:03:44 passed exit 0 with `--no-telegram`.
   Devbox pre-change private snapshot:
   `~/.local/state/password-reset/rollbacks/20261108-telegram-cutover-before/`.
-  The 09:50 natural devbox monitor cycle passed exit 0, and Password Reset
-  timer, service result, and per-account daily checks were `ok`. Its one
+  The 09:50 and 10:05 natural devbox monitor cycles passed exit 0. After the
+  second Password Reset run, its timer and service result remained `ok`;
+  per-account daily checks were `ok` at 09:50. Its one
   pending LOW event belongs to the unrelated `telegram-daily-reason.timer`.
 
 ## Active alarms and limits
@@ -81,8 +85,16 @@ messages in the sampled chat predated its earlier central-monitor migration.
   lock. After separately authorized unlock and retry, the full service passed
   and natural monitor cycles closed that alarm. Preserve first-attempt FAIL.
 - Telegram inspection covered only 60 loaded messages from 13 Oct–8 Nov
-  2026, not the entire history. No synthetic incident, direct Telegram test,
-  notification replay, or manual incident-state edit was used for this stage.
+  2026 plus an older bounded sample back to 2 Oct. Further historical
+  families were disk usage, Social Media invitations, Restic GP mail purge,
+  VPN, Minecraft Bedrock, devbox backup, Lesson Starters and Trustpilot; all
+  are in current monitor profiles or are retired. Minecraft Bedrock and old
+  Lesson Starters units are disabled/inactive; GP replacement Lesson Materials
+  timer is active. DNS host-local alert timers are retired on both proxy hosts.
+  The chat had no new Password Reset `[OK]` at 09:58 after its 09:48 run.
+  This sample is not the entire Telegram history. No synthetic incident,
+  direct Telegram test, notification replay, or manual incident-state edit
+  was used for this stage.
 
 ## Important files
 
@@ -96,9 +108,9 @@ messages in the sampled chat predated its earlier central-monitor migration.
 
 1. Read this file and `README.md`; check `git status --short`, live adapter
    hash, timer state, active incidents, and pending queues before changes.
-2. Finish readback of GP 10:00 Schedule Publisher and OpenAI cycles, and
-   devbox 10:03 Password Reset cycle. Confirm following
-   central-monitor cycles. Do not manually call paid APIs or send test alerts.
+2. Observe later natural cycles and incoming routes without manually calling
+   paid APIs or sending test alerts. The first post-cutover GP application
+   cycles and the two devbox Password Reset cycles passed.
 3. At the next natural Designmodo daily sync (9 Nov 06:45 CET), verify service
    result and central alarm routing. Investigate its existing failed import in
    the owning project; preserve the active alarm until natural recovery.
