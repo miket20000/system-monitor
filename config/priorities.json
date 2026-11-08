@@ -18,6 +18,20 @@
   },
   "assignments": [
     {
+      "patterns": ["openai-key:status"],
+      "priority": 2,
+      "name": "Klucz OpenAI",
+      "problem": "kontrola klucza zgłasza błąd",
+      "resolved": "klucz ponownie działa prawidłowo"
+    },
+    {
+      "patterns": ["schedule-publisher:last-failure"],
+      "priority": 2,
+      "name": "Publikacja harmonogramu",
+      "problem": "próba publikacji zakończyła się błędem",
+      "resolved": "publikacja ponownie działa prawidłowo"
+    },
+    {
       "patterns": ["system-timer:platform-account-manager.timer", "system-service:platform-account-manager.service:result"],
       "priority": 2,
       "name": "Przypisania kont Minecraft",

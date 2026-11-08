@@ -52,6 +52,16 @@ minutes for VM reconciliation, and 15/30 minutes for VM inventory sync. The
 frequent VM Manager jobs route to MEDIUM; daily retention and backup jobs keep
 their existing LOW policy. The independent OpenRouter key monitor keeps its
 own notification channel outside this profile.
+The hourly OpenAI key monitor performs its paid API check and writes a private
+status file. GP Monitor reads only the allowlisted `status` and `last_seen`
+fields from `/var/lib/openai-key-monitor/state.json`; missing or stale samples
+alert through `sysmon-medium`. A completed key check can report an unhealthy
+key with exit status zero, so its systemd result alone is insufficient.
+Provider responses and credentials never enter GP Monitor notifications.
+GP Monitor also reads the private Schedule Publisher status file. A failed
+manual publication is recorded by `lastFailedAttemptAt` and remains observable
+after a later successful timer run. The monitor treats a new failure marker as
+a MEDIUM incident; its HTTP probes continue to cover API availability.
 Coding Giants App readiness verifies the signed release catalog in full every
 five minutes; a direct GP measurement took 8.677 seconds on a cold check.
 Only this endpoint uses a 30-second request timeout and 15/25-second

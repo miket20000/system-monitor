@@ -4,6 +4,8 @@
   "priorities_file": "/etc/system-monitor/priorities.json",
   "host_label": "gp",
   "state_file": "/var/lib/gp-monitor/state.json",
+  "openai_key_status_file": "/var/lib/openai-key-monitor/state.json",
+  "schedule_publisher_status_file": "/var/lib/schedule-publisher/status.json",
   "thresholds": {
     "disk_warning_percent": 80,
     "disk_critical_percent": 90,

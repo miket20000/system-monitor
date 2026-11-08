@@ -1050,6 +1050,60 @@ class Monitor:
                 notification_class="durable",
             )
 
+    def check_openai_key_status(self) -> None:
+        path = self.config.get("openai_key_status_file")
+        if not path:
+            return
+        key = "openai-key:status"
+        try:
+            payload = json.loads(Path(path).read_text(encoding="utf-8"))
+            status = payload["status"]
+            seen = payload["last_seen"]
+            allowed = {
+                "ok", "invalid_key", "permission_error", "credit_balance_exhausted",
+                "insufficient_quota", "rate_limited", "api_error", "network_error",
+                "unexpected_error",
+            }
+            if (not isinstance(payload, dict) or status not in allowed
+                    or type(seen) not in (int, float) or not 0 <= self.now - seen <= 7200):
+                raise ValueError("invalid or stale status")
+        except (OSError, UnicodeError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+            self.add(key, "critical", "OpenAI key check status is unavailable",
+                     notification_class="durable")
+            return
+        if status == "ok":
+            self.add(key, "ok", "OpenAI key is working", notification_class="durable")
+        else:
+            self.add(key, "critical", f"OpenAI key check reports {status}",
+                     notification_class="network" if status in {"network_error", "api_error", "rate_limited"} else "durable",
+                     notification_code=status)
+
+    def check_schedule_publisher_status(self) -> None:
+        path = self.config.get("schedule_publisher_status_file")
+        if not path:
+            return
+        key = "schedule-publisher:last-failure"
+        try:
+            payload = json.loads(Path(path).read_text(encoding="utf-8"))
+            if not isinstance(payload, dict) or type(payload.get("ok")) is not bool:
+                raise ValueError("invalid publication status")
+            marker = payload.get("lastFailedAttemptAt", "")
+            if marker:
+                if not isinstance(marker, str) or timestamp_epoch(marker) is None:
+                    raise ValueError("invalid failure timestamp")
+        except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError):
+            self.add(key, "critical", "Publication status is unavailable",
+                     notification_class="durable")
+            return
+        previous = self.state.get("checks", {}).get(key)
+        # The first healthy observation establishes a baseline for historical
+        # failures; later markers remain visible even after a quick retry.
+        new_failure = bool(marker and previous and marker != previous.get("incident_id", ""))
+        severity = "critical" if not payload["ok"] or new_failure else "ok"
+        summary = "Schedule publication failed" if severity == "critical" else "Schedule publication is healthy"
+        self.add(key, severity, summary, incident_id=marker,
+                 notification_class="durable")
+
     def check_system_timers(self) -> None:
         for timer in self.config.get("system_timers", []):
             unit = timer["unit"]
@@ -1957,6 +2011,8 @@ class Monitor:
         self.check_journal_errors()
         self.check_online_compiler_schedulers()
         self.check_external_json_heartbeats()
+        self.check_openai_key_status()
+        self.check_schedule_publisher_status()
         self.check_http()
         self.check_online_compiler_availability()
         self.check_dns()
