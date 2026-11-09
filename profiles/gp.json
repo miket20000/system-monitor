@@ -322,6 +322,12 @@
       "critical_hours": 3
     },
     {
+      "unit": "teachers-discord-tools-publisher.timer",
+      "service": "teachers-discord-tools-publisher.service",
+      "warning_hours": 30,
+      "critical_hours": 36
+    },
+    {
       "unit": "schedule-publisher.timer",
       "service": "schedule-publisher.service",
       "warning_hours": 0.5,

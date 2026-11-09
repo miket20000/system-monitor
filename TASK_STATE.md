@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-11-08 10:05 CET.
+Updated: 2026-11-09 18:36 CET.
 
 ## Goal and ownership
 
@@ -17,6 +17,10 @@ messages in the sampled chat predated its earlier central-monitor migration.
 
 ## Current implementation
 
+- GP profile now covers `teachers-discord-tools-publisher.timer` and its
+  completed service result, warning after 30 hours and critical after 36.
+  It reads only systemd state; the separate publisher is owned by
+  `vps-gp/scripts/teachers-discord-tools-publisher/`.
 - Password Reset's user systemd unit runs `--no-telegram`; the CLI leaves
   explicit `--test-notification` available. Devbox monitor already covers
   timer and service result with its normal priority routing.
@@ -44,6 +48,17 @@ messages in the sampled chat predated its earlier central-monitor migration.
 
 ## Verification and deployment
 
+- Source GP profile JSON is valid; `tests/legacy/test_gp_monitor.py` passed
+  107 tests and 38 subtests in host context. First sandbox run had 17
+  filesystem-denied `BLOCKED` cases and 90 passes; it did not diagnose a monitor
+  defect. The GP profile was merged by adding only the new timer entry to the
+  active config, preserving unrelated live drift and incident state. Private
+  snapshot: `/var/lib/gp-monitor/rollbacks/20261109-teacher-tools-before/`.
+  A `--no-notify` shadow run with private state returned both new checks `ok`;
+  first shadow attempt used the obsolete `/etc/gp-monitor/priorities.json` and
+  failed before probing, then the effective priority path passed. The first
+  natural cycle after the profile update completed 18:36 CET with `success/0`,
+  both new checks `ok`, and zero pending notifications.
 - Source suite: `PYTHONPATH=src pytest -q` passed 255 tests and 50 subtests;
   focused new status tests, JSON parsing, and `git diff --check` passed.
   GP adapter installed SHA-256:
@@ -108,12 +123,13 @@ messages in the sampled chat predated its earlier central-monitor migration.
 
 1. Read this file and `README.md`; check `git status --short`, live adapter
    hash, timer state, active incidents, and pending queues before changes.
+   Verify the publisher's first scheduled 05:30 run on 2026-11-10 and the
+   following natural monitor cycle.
 2. Observe later natural cycles and incoming routes without manually calling
    paid APIs or sending test alerts. The first post-cutover GP application
    cycles and the two devbox Password Reset cycles passed.
-3. At the next natural Designmodo daily sync (9 Nov 06:45 CET), verify service
-   result and central alarm routing. Investigate its existing failed import in
-   the owning project; preserve the active alarm until natural recovery.
+3. For the unrelated Designmodo import failure, refresh its live service and
+   incident state before action; preserve any active alarm until natural recovery.
 4. Preserve private snapshots and live GP priority drift. Restore only the
    relevant files from snapshots if cutover fails, retaining first-attempt
    evidence and production incident state.

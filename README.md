@@ -44,6 +44,10 @@ Scratch CG homepage. AI Admin readiness is covered by its existing five-minute
 `cga-auth-prod.service` has no unauthenticated readiness route; its unit state
 is monitored without treating an unauthorized session response as readiness.
 
+The daily teacher Discord tools JSON publisher on GP is covered by its timer
+and completed service result, with 30-hour warning and 36-hour critical
+freshness thresholds. The monitor does not read report rows or credentials.
+
 GP also monitors the completed results of the AI Admin probe, Coding Giants
 App retention, Scratch CG retention, ScratchJr CG retention and backup, and VM
 Manager reconcile and inventory-sync timers. Their warning/critical freshness
