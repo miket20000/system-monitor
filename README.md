@@ -93,6 +93,8 @@ incident keys remain unchanged so an existing incident is not replayed as
 The devbox profile has one bounded read-only dead-man probe for GP. It executes
 a fixed SSH `systemctl show gp-monitor.service` command and is classified as a
 network observation, so a new alert requires three consecutive failed cycles.
+The retired Telegram Daily Reason receiver and timer are not monitored by the
+devbox profile.
 
 The Canva3 daily-success check also reads that account's `enabled` flag from
 the local Password Reset provider configuration. A disabled account stays

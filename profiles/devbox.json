@@ -59,7 +59,6 @@
   "user_services": [
     {"unit": "gnome-remote-desktop.service"},
     {"unit": "vps-restic-rest-server.service"},
-    {"unit": "telegram-daily-reason-receiver.service"},
     {"unit": "trustpilot-notifier.service"},
     {"unit": "trustpilot-notifier-tunnel.service"}
   ],
@@ -124,12 +123,6 @@
       "warning_hours": 840,
       "critical_hours": 960,
       "first_success_due": "2026-10-01T12:30:00+02:00"
-    },
-    {
-      "unit": "telegram-daily-reason.timer",
-      "service": "telegram-daily-reason.service",
-      "warning_hours": 30,
-      "critical_hours": 36
     },
     {
       "unit": "trustpilot-notifier-process.timer",

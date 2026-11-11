@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-11-09 18:36 CET.
+Updated: 2026-11-11 11:40 CET.
 
 ## Goal and ownership
 
@@ -17,6 +17,12 @@ messages in the sampled chat predated its earlier central-monitor migration.
 
 ## Current implementation
 
+- The disabled Telegram Daily Reason receiver and timer were retired from
+  the devbox source and live profile on 11 Nov. Only their three check keys
+  were removed from live state to prevent reminders. The corresponding two
+  priority patterns were removed from source and live policy; all other
+  incidents were retained. Private rollback:
+  `~/.local/state/devbox-monitor/rollbacks/20261111-daily-reason-before-113611/`.
 - GP profile now covers `teachers-discord-tools-publisher.timer` and its
   completed service result, warning after 30 hours and critical after 36.
   It reads only systemd state; the separate publisher is owned by
@@ -48,6 +54,14 @@ messages in the sampled chat predated its earlier central-monitor migration.
 
 ## Verification and deployment
 
+- Before Daily Reason retirement the source and live devbox profiles matched
+  exactly. JSON parsing, `git diff --check` and `PYTHONPATH=src pytest -q`
+  passed (255 tests, 50 subtests). A host-context shadow cycle with
+  `--no-notify` and private state passed without Daily Reason probes. Live
+  readback found no Daily Reason entries in profile, priority policy or
+  incident state; the devbox timer was restored active. Its first natural
+  11:40 CET cycle finished success/0, did not recreate Daily Reason checks,
+  had zero pending events and preserved all five other devbox incidents.
 - Source GP profile JSON is valid; `tests/legacy/test_gp_monitor.py` passed
   107 tests and 38 subtests in host context. First sandbox run had 17
   filesystem-denied `BLOCKED` cases and 90 passes; it did not diagnose a monitor
@@ -75,8 +89,8 @@ messages in the sampled chat predated its earlier central-monitor migration.
   Schedule Publisher and OpenAI cycles at 10:00 finished success/0; private
   business statuses were `ok`. The following GP monitor 10:01 cycle finished
   success/0, with their status and service-result checks `ok`, the Designmodo
-  alarm still active, and zero pending GP events. Designmodo's next daily
-  cycle is 2026-11-09 06:45 CET.
+  alarm still active, and zero pending GP events. Subsequent Designmodo
+  cycles through 11 Nov continued to fail.
 - Devbox Password Reset source commit: `31dd39f` in `scripts-devbox`.
   GP app source commit: `1bbbebd` in `vps-gp`. First natural Password Reset
   runs at 09:48:34 and 10:03:44 passed exit 0 with `--no-telegram`.
@@ -84,32 +98,38 @@ messages in the sampled chat predated its earlier central-monitor migration.
   `~/.local/state/password-reset/rollbacks/20261108-telegram-cutover-before/`.
   The 09:50 and 10:05 natural devbox monitor cycles passed exit 0. After the
   second Password Reset run, its timer and service result remained `ok`;
-  per-account daily checks were `ok` at 09:50. Its one
-  pending LOW event belongs to the unrelated `telegram-daily-reason.timer`.
+  per-account daily checks were `ok` at 09:50.
 
-## Active alarms and limits
+## Active alarms and limits (11 Nov 11:38 CET)
 
-- GP Designmodo daily sync failed on 8 Nov at 06:45 and its existing central
-  result alarm remains active. This stage changed alert ownership and did not
-  repair the import failure.
-- Earlier devbox active alarms included Social Media weekly invitations,
-  Restic check/retention, and Restic GP mail purge; earlier GP alarms included
-  mail archive compression for `forkids` and `forkids-biuro`. Refresh
-  incident state before acting; these observations may have changed.
-- A prior 7 Nov full Restic data-check attempt failed because of an orphaned
-  lock. After separately authorized unlock and retry, the full service passed
-  and natural monitor cycles closed that alarm. Preserve first-attempt FAIL.
-- Telegram inspection covered only 60 loaded messages from 13 Oct–8 Nov
-  2026 plus an older bounded sample back to 2 Oct. Further historical
-  families were disk usage, Social Media invitations, Restic GP mail purge,
-  VPN, Minecraft Bedrock, devbox backup, Lesson Starters and Trustpilot; all
-  are in current monitor profiles or are retired. Minecraft Bedrock and old
-  Lesson Starters units are disabled/inactive; GP replacement Lesson Materials
-  timer is active. DNS host-local alert timers are retired on both proxy hosts.
-  The chat had no new Password Reset `[OK]` at 09:58 after its 09:48 run.
-  This sample is not the entire Telegram history. No synthetic incident,
-  direct Telegram test, notification replay, or manual incident-state edit
-  was used for this stage.
+- Devbox system backup: exit 3 on 11 Nov 01:59. Snapshot saved with incomplete
+  coverage because the active CRM Elasticsearch container has no usable
+  consistency adapter; its `devbox-restic` snapshot repository returned 404.
+- VPS Restic backup: exit 1 on 11 Nov 03:43. DNS proxy and giganci backups
+  succeeded; GP backup failed on an exclusive repository lock created 9 Nov
+  12:08 by PID 4041971. That PID is no longer running on GP. Do not unlock or
+  retry before checking all repository clients.
+- VPS Restic check: exit 1 on 9 Nov 08:30 because another backup operation
+  was running; there has been no successful completed check since.
+- GP mail purge: exit 124 on 9 Nov 12:13 after 6h13m, during snapshot rewrite
+  after archive verification. The backup script's operation timeout is 6h.
+  This task changes retained snapshots; do not rerun it as a smoke test.
+  Its interruption may relate to the GP repository lock, but this is not
+  established conclusively.
+- Social Media invitations: exit 20/BLOCKED on 9 Nov 10:03, 0/33 pages.
+  The task's own result cites a missing `Facebook_pages.csv` and no free,
+  owned Meta Home tab. Do not retry completed prior batches.
+- GP Designmodo daily sync: exit 1 on 11 Nov 06:45, repeated since at least
+  7 Nov. The local import API returned HTTP 404 for a batch of three
+  `giganciprogramowania` projects. Import-run rows show `error`, zero imported
+  and zero per-project errors, consistent with failure while discovering a
+  project. The precise upstream error body was not read; do not call the
+  provider merely to reproduce it.
+- GP public `komputery` endpoint: HTTP 526. Its Apache origin certificate
+  expired 11 Nov 09:08 CET; direct origin TLS validation fails. Certbot's
+  recent attempts failed challenges. Apache itself is active.
+- These are diagnoses only. No backup repair, unlock, retry, certificate
+  renewal or GP service restart was authorized in this stage.
 
 ## Important files
 
@@ -121,15 +141,11 @@ messages in the sampled chat predated its earlier central-monitor migration.
 
 ## START HERE
 
-1. Read this file and `README.md`; check `git status --short`, live adapter
-   hash, timer state, active incidents, and pending queues before changes.
-   Verify the publisher's first scheduled 05:30 run on 2026-11-10 and the
-   following natural monitor cycle.
-2. Observe later natural cycles and incoming routes without manually calling
-   paid APIs or sending test alerts. The first post-cutover GP application
-   cycles and the two devbox Password Reset cycles passed.
-3. For the unrelated Designmodo import failure, refresh its live service and
-   incident state before action; preserve any active alarm until natural recovery.
-4. Preserve private snapshots and live GP priority drift. Restore only the
-   relevant files from snapshots if cutover fails, retaining first-attempt
-   evidence and production incident state.
+1. Read this file and `README.md`; check `git status --short`, live profiles,
+   timer state, active incidents and pending notifications before changes.
+2. Confirm current incidents and later natural cycles before further changes;
+   the first post-retirement devbox cycle at 11:40 CET passed.
+3. Prioritize the expired `komputery` origin certificate and backup coverage/
+   Restic lock investigation. Repair and retry are outside this stage.
+4. Preserve private rollback snapshots, GP priority drift and unrelated
+   incident state. Use natural cycles for recovery evidence.

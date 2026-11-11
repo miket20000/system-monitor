@@ -75,7 +75,6 @@ class ConfigCoverageTests(unittest.TestCase):
             {item["unit"] for item in self.config["user_services"]},
             {
                 "gnome-remote-desktop.service",
-                "telegram-daily-reason-receiver.service",
                 "trustpilot-notifier.service",
                 "trustpilot-notifier-tunnel.service",
                 "vps-restic-rest-server.service",
@@ -84,7 +83,7 @@ class ConfigCoverageTests(unittest.TestCase):
 
     def test_expected_timers_are_monitored_and_transient_timer_is_excluded(self):
         timers = {item["unit"]: item for item in self.config["user_timers"]}
-        self.assertEqual(len(timers), 9)
+        self.assertEqual(len(timers), 8)
         self.assertNotIn("online-compiler-dev-retention-audit.timer", timers)
         self.assertNotIn("scripts-windows-git-sync.timer", timers)
         self.assertNotIn("git-sync@scripts-windows.timer", timers)
@@ -114,7 +113,7 @@ class ConfigCoverageTests(unittest.TestCase):
             ]["repeat_same_incident"]
         )
         self.assertEqual(timers["vps-restic-data-check.timer"]["warning_hours"], 840)
-        self.assertEqual(timers["telegram-daily-reason.timer"]["critical_hours"], 36)
+        self.assertNotIn("telegram-daily-reason.timer", timers)
         self.assertEqual(
             timers["trustpilot-notifier-process.timer"],
             {
