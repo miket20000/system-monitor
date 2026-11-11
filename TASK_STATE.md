@@ -1,6 +1,6 @@
 # System Monitor — Task State
 
-Updated: 2026-11-11 11:40 CET.
+Updated: 2026-11-11 13:51 CET.
 
 ## Goal and ownership
 
@@ -54,6 +54,12 @@ messages in the sampled chat predated its earlier central-monitor migration.
 
 ## Verification and deployment
 
+- The GP public `komputery` origin certificate was renewed in the Apache
+  project on 11 Nov after correcting its HTTP-01 webroot. Origin and public
+  HTTPS now redirect with valid TLS, and the target page returns 200.
+  GP monitor natural cycles at 13:46 and 13:51 CET finished success/0;
+  the second closed `endpoint:komputery`. The only remaining active GP
+  incident is Designmodo daily sync; there are no pending notifications.
 - Before Daily Reason retirement the source and live devbox profiles matched
   exactly. JSON parsing, `git diff --check` and `PYTHONPATH=src pytest -q`
   passed (255 tests, 50 subtests). A host-context shadow cycle with
@@ -100,7 +106,7 @@ messages in the sampled chat predated its earlier central-monitor migration.
   second Password Reset run, its timer and service result remained `ok`;
   per-account daily checks were `ok` at 09:50.
 
-## Active alarms and limits (11 Nov 11:38 CET)
+## Active alarms and limits (11 Nov 13:51 CET)
 
 - Devbox system backup: exit 3 on 11 Nov 01:59. Snapshot saved with incomplete
   coverage because the active CRM Elasticsearch container has no usable
@@ -125,11 +131,9 @@ messages in the sampled chat predated its earlier central-monitor migration.
   and zero per-project errors, consistent with failure while discovering a
   project. The precise upstream error body was not read; do not call the
   provider merely to reproduce it.
-- GP public `komputery` endpoint: HTTP 526. Its Apache origin certificate
-  expired 11 Nov 09:08 CET; direct origin TLS validation fails. Certbot's
-  recent attempts failed challenges. Apache itself is active.
-- These are diagnoses only. No backup repair, unlock, retry, certificate
-  renewal or GP service restart was authorized in this stage.
+- The `komputery` HTTP 526 incident is resolved as noted above. Other listed
+  alarms remain diagnoses only; no backup repair, unlock, retry or GP service
+  restart was part of the certificate repair.
 
 ## Important files
 
@@ -145,7 +149,7 @@ messages in the sampled chat predated its earlier central-monitor migration.
    timer state, active incidents and pending notifications before changes.
 2. Confirm current incidents and later natural cycles before further changes;
    the first post-retirement devbox cycle at 11:40 CET passed.
-3. Prioritize the expired `komputery` origin certificate and backup coverage/
-   Restic lock investigation. Repair and retry are outside this stage.
+3. Prioritize backup coverage and Restic lock investigation. Repair and retry
+   remain outside the certificate repair stage.
 4. Preserve private rollback snapshots, GP priority drift and unrelated
    incident state. Use natural cycles for recovery evidence.
